@@ -1,0 +1,1 @@
+# zserio-cpp11-safe
