@@ -8,7 +8,190 @@ which provides functionality common for all generated code.
 
 For a **quick start** see the [C++ Tutorial](https://github.com/ndsev/zserio-tutorial-cpp#zserio-c-quick-start-tutorial).
 
+## Building and Using This Extension
+
+This is a standalone C++11-safe variant of the zserio C++ extension. It generates C++ code that is fully compatible with C++11 compilers, removing dependencies on C++14/17/20 features found in the standard C++ extension.
+
+### Prerequisites
+
+- Java 8 or higher (for building and running the compiler plugin)
+- Apache Ant (for building the compiler plugin)
+- CMake 3.15+ (for building the runtime library)
+- C++11 compatible compiler (gcc 4.8+, clang 3.3+, or equivalent)
+
+### Building the Extension
+
+#### 1. Build the Compiler Plugin
+
+The compiler plugin is the Java component that generates C++ code from zserio schemas:
+
+```bash
+cd /Users/mistergc/dev/zserio/zserio-cpp11-safe
+ant install
+```
+
+This will:
+- Compile the Java sources in `src/`
+- Package them into `zserio_cpp.jar`
+- Install the jar to the configured install directory
+
+The build process expects the zserio core jar to be available. By default, it looks for it relative to this directory.
+
+#### 2. Build the Runtime Library
+
+The runtime library provides the C++ infrastructure needed by generated code:
+
+```bash
+cd runtime
+mkdir build && cd build
+cmake ..
+make
+```
+
+The runtime is pre-configured to use C++11 standard (`CMAKE_CXX_STANDARD` is set to 11 in CMakeLists.txt).
+
+### Using the Extension
+
+There are three ways to use this C++11-safe extension:
+
+#### Option 1: Standalone Usage
+
+After building both components, you can use the extension directly with the Java command:
+
+```bash
+java -cp "path/to/zserio_core.jar:path/to/zserio_cpp.jar" \
+     zserio.tools.ZserioTool \
+     -cpp <output_dir> \
+     -src <source_dir> \
+     <schema.zs>
+```
+
+Example:
+```bash
+java -cp "../../../build/compiler/core/java/jar/zserio_core.jar:build/jar/zserio_cpp.jar" \
+     zserio.tools.ZserioTool \
+     -cpp generated \
+     -src schemas \
+     myschema.zs
+```
+
+#### Option 2: Integration with Main Zserio
+
+This extension is designed to be integrated with the main zserio build system:
+
+1. The extension is already symlinked at `/Users/mistergc/dev/zserio/zserio/extern/zserio-cpp11-safe`
+2. When building the main zserio project, this extension will be automatically included
+3. The extension registers itself as "C++11 Generator" (as seen in `CppExtension.java`)
+
+#### Option 3: Using CMake Integration
+
+For projects using CMake, you can use the zserio CMake helper (see [Using Zserio CMake Helper](#using-zserio-cmake-helper) section below):
+
+```cmake
+# In your CMakeLists.txt
+set(CMAKE_MODULE_PATH "${ZSERIO_RELEASE}/cmake")
+set(ZSERIO_JAR_FILE "${ZSERIO_RELEASE}/zserio.jar")
+include(zserio_compiler)
+
+add_library(my_schema my_schema.zs)
+zserio_generate_cpp(
+    TARGET my_schema
+    GEN_DIR ${CMAKE_CURRENT_BINARY_DIR}/gen
+    EXTRA_ARGS -withTypeInfoCode -withReflectionCode  # Optional features
+)
+
+# Link with the runtime library
+target_link_libraries(my_schema ZserioCppRuntime)
+```
+
+### Available Options
+
+This C++11-safe extension supports all the standard zserio C++ generator options:
+
+- `-withRangeCheckCode` - Enable range checking for integer fields
+- `-withValidationCode` - Enable validation code for SQL databases
+- `-withCodeComments` - Generate Doxygen comments
+- `-withTypeInfoCode` - Generate type information
+- `-withReflectionCode` - Enable reflection support
+- `-setCppAllocator polymorphic` - Use polymorphic allocators instead of standard allocators
+
+Additional options can be found in the [Zserio User Guide](../../../doc/ZserioUserGuide.md#zserio-command-line-interface).
+
+## Build Environment Requirements
+
+### Required Tools
+
+- **Java 8 or higher** - Required for building and running the compiler plugin
+- **Apache Ant 1.10+** - Required for building Java components
+- **CMake 3.15+** - Required for building the C++ runtime library
+- **C++11 compatible compiler**:
+  - GCC 4.8+ (tested with 7.5.0)
+  - Clang 3.3+ (tested with 11.0.0)
+  - Apple Clang (Xcode 10+)
+  - MSVC 2017+
+  - MinGW 7.5.0+
+
+### Platform-Specific Notes
+
+- **macOS**: Xcode Command Line Tools required (`xcode-select --install`)
+- **Linux**: build-essential package required (`sudo apt-get install build-essential`)
+- **Windows**: Visual Studio 2017+ or MinGW-w64 recommended
+
+### Quick Environment Check
+
+Before building, you can verify your environment has all required tools:
+
+```bash
+./test/check_environment.sh
+```
+
+This script will check for all required tools and report any missing dependencies.
+
+### Installation Examples
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get update
+sudo apt-get install default-jdk ant cmake build-essential
+```
+
+**macOS (with Homebrew):**
+```bash
+brew install openjdk ant cmake
+```
+
+**CentOS/RHEL:**
+```bash
+sudo yum install java-1.8.0-openjdk-devel ant cmake gcc-c++
+```
+
+**Windows:**
+- Install [Java JDK](https://adoptium.net/)
+- Install [Apache Ant](https://ant.apache.org/bindownload.cgi)
+- Install [CMake](https://cmake.org/download/)
+- Install Visual Studio 2017+ with C++ workload or [MinGW-w64](https://www.mingw-w64.org/)
+
 ## Content
+
+[Building and Using This Extension](#building-and-using-this-extension)
+
+&nbsp; &nbsp; &nbsp; &nbsp; [Prerequisites](#prerequisites)
+
+&nbsp; &nbsp; &nbsp; &nbsp; [Building the Extension](#building-the-extension)
+
+&nbsp; &nbsp; &nbsp; &nbsp; [Using the Extension](#using-the-extension)
+
+&nbsp; &nbsp; &nbsp; &nbsp; [Available Options](#available-options)
+
+[Build Environment Requirements](#build-environment-requirements)
+
+&nbsp; &nbsp; &nbsp; &nbsp; [Required Tools](#required-tools)
+
+&nbsp; &nbsp; &nbsp; &nbsp; [Platform-Specific Notes](#platform-specific-notes)
+
+&nbsp; &nbsp; &nbsp; &nbsp; [Quick Environment Check](#quick-environment-check)
+
+&nbsp; &nbsp; &nbsp; &nbsp; [Installation Examples](#installation-examples)
 
 [Supported C++ Standards](#supported-c-standards)
 
