@@ -1,4 +1,4 @@
-#include "zserio/JsonTokenizer.h"
+#include "zserio/unsafe/JsonTokenizer.h"
 
 namespace zserio
 {

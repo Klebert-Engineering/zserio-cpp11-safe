@@ -1,4 +1,4 @@
-#include "zserio/TypeInfoUtil.h"
+#include "zserio/unsafe/TypeInfoUtil.h"
 
 namespace zserio
 {

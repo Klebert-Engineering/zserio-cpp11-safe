@@ -5,12 +5,12 @@
 #include <limits>
 
 #include "zserio/AllocatorHolder.h"
-#include "zserio/JsonParser.h"
+#include "zserio/unsafe/JsonParser.h"
 #include "zserio/OptionalHolder.h"
 #include "zserio/SizeConvertUtil.h"
 #include "zserio/StringView.h"
 #include "zserio/UniquePtr.h"
-#include "zserio/ZserioTreeCreator.h"
+#include "zserio/unsafe/ZserioTreeCreator.h"
 
 namespace zserio
 {

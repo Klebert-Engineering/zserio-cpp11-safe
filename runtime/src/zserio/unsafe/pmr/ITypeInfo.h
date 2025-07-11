@@ -1,8 +1,8 @@
 #ifndef ZSERIO_PMR_I_TYPE_INFO_H_INC
 #define ZSERIO_PMR_I_TYPE_INFO_H_INC
 
-#include "zserio/ITypeInfo.h"
-#include "zserio/pmr/PolymorphicAllocator.h"
+#include "zserio/unsafe/ITypeInfo.h"
+#include "zserio/unsafe/pmr/PolymorphicAllocator.h"
 
 namespace zserio
 {

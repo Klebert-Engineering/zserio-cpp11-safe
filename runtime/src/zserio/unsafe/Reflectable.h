@@ -7,12 +7,12 @@
 #include "zserio/AllocatorHolder.h"
 #include "zserio/BitSizeOfCalculator.h"
 #include "zserio/CppRuntimeException.h"
-#include "zserio/IReflectable.h"
+#include "zserio/unsafe/IReflectable.h"
 #include "zserio/Span.h"
 #include "zserio/StringConvertUtil.h"
 #include "zserio/Traits.h"
-#include "zserio/TypeInfo.h"
-#include "zserio/TypeInfoUtil.h"
+#include "zserio/unsafe/TypeInfo.h"
+#include "zserio/unsafe/TypeInfoUtil.h"
 
 namespace zserio
 {

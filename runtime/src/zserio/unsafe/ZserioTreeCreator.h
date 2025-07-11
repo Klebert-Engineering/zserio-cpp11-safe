@@ -8,11 +8,11 @@
 
 #include "zserio/BitBuffer.h"
 #include "zserio/CppRuntimeException.h"
-#include "zserio/IReflectable.h"
-#include "zserio/ITypeInfo.h"
+#include "zserio/unsafe/IReflectable.h"
+#include "zserio/unsafe/ITypeInfo.h"
 #include "zserio/StringView.h"
 #include "zserio/Traits.h"
-#include "zserio/TypeInfoUtil.h"
+#include "zserio/unsafe/TypeInfoUtil.h"
 #include "zserio/Types.h"
 #include "zserio/Vector.h"
 

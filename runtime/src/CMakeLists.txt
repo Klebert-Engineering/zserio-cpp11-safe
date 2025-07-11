@@ -17,12 +17,14 @@ cmake_minimum_required(VERSION 3.15.0)
 
 project(ZserioCppRuntime)
 
+# Option for unsafe features
+option(ZSERIO_CPP11_UNSAFE "Enable unsafe development features (NOT FOR PRODUCTION)" OFF)
+
 set(ZSERIO_CPP_RUNTIME_LIB_SRCS
     zserio/pmr/AnyHolder.h
     zserio/pmr/ArrayTraits.h
     zserio/pmr/BitBuffer.h
     zserio/pmr/HeapOptionalHolder.h
-    zserio/pmr/IReflectable.h
     zserio/pmr/IService.h
     zserio/pmr/Map.h
     zserio/pmr/MemoryResource.cpp
@@ -30,7 +32,6 @@ set(ZSERIO_CPP_RUNTIME_LIB_SRCS
     zserio/pmr/NewDeleteResource.cpp
     zserio/pmr/NewDeleteResource.h
     zserio/pmr/PolymorphicAllocator.h
-    zserio/pmr/Reflectable.h
     zserio/pmr/Set.h
     zserio/pmr/String.h
     zserio/pmr/UniquePtr.h
@@ -56,59 +57,86 @@ set(ZSERIO_CPP_RUNTIME_LIB_SRCS
     zserio/CppRuntimeException.cpp
     zserio/CppRuntimeException.h
     zserio/CppRuntimeVersion.h
-    zserio/DebugStringUtil.h
+    zserio/DeltaContext.h
     zserio/DeprecatedAttribute.h
     zserio/Enums.h
+    zserio/FileUtil.cpp
+    zserio/FileUtil.h
     zserio/FloatUtil.cpp
     zserio/FloatUtil.h
     zserio/HashCodeUtil.h
-    zserio/FileUtil.cpp
-    zserio/FileUtil.h
-    zserio/IReflectable.h
     zserio/IPubsub.h
     zserio/IService.h
     zserio/ISqliteDatabase.h
     zserio/ISqliteDatabaseReader.h
-    zserio/ITypeInfo.h
     zserio/IValidationObserver.h
-    zserio/IWalkFilter.h
-    zserio/IWalkObserver.h
-    zserio/JsonEncoder.cpp
-    zserio/JsonEncoder.h
-    zserio/JsonDecoder.h
-    zserio/JsonParser.h
-    zserio/JsonReader.h
-    zserio/JsonTokenizer.cpp
-    zserio/JsonTokenizer.h
-    zserio/JsonWriter.h
     zserio/NoInit.h
     zserio/OptionalHolder.h
-    zserio/DeltaContext.h
     zserio/ParsingInfo.h
     zserio/PubsubException.h
-    zserio/Reflectable.h
+    zserio/RebindAlloc.h
+    zserio/RuntimeArch.h
     zserio/SerializeUtil.h
     zserio/ServiceException.h
+    zserio/SizeConvertUtil.cpp
+    zserio/SizeConvertUtil.h
     zserio/Span.h
     zserio/SqliteConnection.h
     zserio/SqliteException.h
     zserio/SqliteFinalizer.h
+    zserio/String.h
     zserio/StringConvertUtil.h
     zserio/StringView.h
     zserio/Traits.h
-    zserio/TypeInfo.h
-    zserio/TypeInfoUtil.cpp
-    zserio/TypeInfoUtil.h
     zserio/Types.h
     zserio/UniquePtr.h
     zserio/ValidationSqliteUtil.h
-    zserio/SizeConvertUtil.cpp
-    zserio/SizeConvertUtil.h
-    zserio/Walker.h
-    zserio/WalkerConst.h
-    zserio/ZserioTreeCreator.h
-    zserio/ZserioTreeCreator.cpp
+    zserio/Vector.h
 )
+
+# Conditionally add unsafe sources
+if(ZSERIO_CPP11_UNSAFE)
+    message(WARNING "")
+    message(WARNING "================================================")
+    message(WARNING "UNSAFE EXTENSIONS ENABLED - NOT FOR PRODUCTION!")
+    message(WARNING "This build includes non-functional-safety-ready code!")
+    message(WARNING "================================================")
+    message(WARNING "")
+    
+    list(APPEND ZSERIO_CPP_RUNTIME_LIB_SRCS
+        # JSON support
+        zserio/unsafe/JsonEncoder.h
+        zserio/unsafe/JsonEncoder.cpp
+        zserio/unsafe/JsonDecoder.h
+        zserio/unsafe/JsonParser.h
+        zserio/unsafe/JsonReader.h
+        zserio/unsafe/JsonTokenizer.h
+        zserio/unsafe/JsonTokenizer.cpp
+        zserio/unsafe/JsonWriter.h
+        # Reflection support
+        zserio/unsafe/IReflectable.h
+        zserio/unsafe/Reflectable.h
+        zserio/unsafe/ReflectableUtil.h
+        # Type information
+        zserio/unsafe/ITypeInfo.h
+        zserio/unsafe/TypeInfo.h
+        zserio/unsafe/TypeInfoUtil.h
+        zserio/unsafe/TypeInfoUtil.cpp
+        # Walker functionality
+        zserio/unsafe/Walker.h
+        zserio/unsafe/WalkerConst.h
+        zserio/unsafe/IWalkObserver.h
+        zserio/unsafe/IWalkFilter.h
+        # Debug/development
+        zserio/unsafe/DebugStringUtil.h
+        zserio/unsafe/ZserioTreeCreator.h
+        zserio/unsafe/ZserioTreeCreator.cpp
+        # PMR unsafe
+        zserio/unsafe/pmr/IReflectable.h
+        zserio/unsafe/pmr/Reflectable.h
+        zserio/unsafe/pmr/ITypeInfo.h
+    )
+endif()
 
 add_library(${PROJECT_NAME} STATIC ${ZSERIO_CPP_RUNTIME_LIB_SRCS})
 
@@ -117,3 +145,7 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/zserio FILES ${ZSERIO_CPP_RUNTIME_
 target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_11)
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+if(ZSERIO_CPP11_UNSAFE)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC ZSERIO_CPP11_UNSAFE_MODE)
+endif()

@@ -5,7 +5,9 @@
 #include "zserio/pmr/PolymorphicAllocator.h"
 
 // needed to have proper pmr typedefs
-#include "zserio/pmr/IReflectable.h"
+#ifdef ZSERIO_CPP11_UNSAFE_MODE
+#include "zserio/unsafe/pmr/IReflectable.h"
+#endif
 
 namespace zserio
 {

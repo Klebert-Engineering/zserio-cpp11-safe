@@ -3,7 +3,7 @@
 #include <iomanip>
 #include <string>
 
-#include "zserio/JsonEncoder.h"
+#include "zserio/unsafe/JsonEncoder.h"
 
 namespace zserio
 {

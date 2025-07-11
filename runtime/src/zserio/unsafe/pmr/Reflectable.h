@@ -1,8 +1,8 @@
 #ifndef ZSERIO_PMR_REFLECTABLE_H_INC
 #define ZSERIO_PMR_REFLECTABLE_H_INC
 
-#include "zserio/Reflectable.h"
-#include "zserio/pmr/PolymorphicAllocator.h"
+#include "zserio/unsafe/Reflectable.h"
+#include "zserio/unsafe/pmr/PolymorphicAllocator.h"
 
 namespace zserio
 {

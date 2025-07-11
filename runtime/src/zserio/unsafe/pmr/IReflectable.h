@@ -1,7 +1,7 @@
 #ifndef ZSERIO_PMR_I_REFLECTABLE_H_INC
 #define ZSERIO_PMR_I_REFLECTABLE_H_INC
 
-#include "zserio/IReflectable.h"
+#include "zserio/unsafe/IReflectable.h"
 #include "zserio/pmr/PolymorphicAllocator.h"
 
 // needed to have proper typedefs

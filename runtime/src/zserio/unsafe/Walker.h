@@ -5,15 +5,15 @@
 #include <functional>
 #include <regex>
 
-#include "zserio/IReflectable.h"
-#include "zserio/ITypeInfo.h"
-#include "zserio/IWalkFilter.h"
-#include "zserio/IWalkObserver.h"
+#include "zserio/unsafe/IReflectable.h"
+#include "zserio/unsafe/ITypeInfo.h"
+#include "zserio/unsafe/IWalkFilter.h"
+#include "zserio/unsafe/IWalkObserver.h"
 #include "zserio/String.h"
 #include "zserio/StringConvertUtil.h"
-#include "zserio/TypeInfoUtil.h"
+#include "zserio/unsafe/TypeInfoUtil.h"
 #include "zserio/Vector.h"
-#include "zserio/WalkerConst.h"
+#include "zserio/unsafe/WalkerConst.h"
 
 namespace zserio
 {

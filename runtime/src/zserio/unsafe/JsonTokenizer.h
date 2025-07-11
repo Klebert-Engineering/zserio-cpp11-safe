@@ -7,7 +7,7 @@
 
 #include "zserio/AnyHolder.h"
 #include "zserio/CppRuntimeException.h"
-#include "zserio/JsonDecoder.h"
+#include "zserio/unsafe/JsonDecoder.h"
 #include "zserio/Types.h"
 
 namespace zserio

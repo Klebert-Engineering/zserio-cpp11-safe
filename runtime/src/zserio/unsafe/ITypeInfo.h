@@ -1,7 +1,7 @@
 #ifndef ZSERIO_I_TYPE_INFO_INC_H
 #define ZSERIO_I_TYPE_INFO_INC_H
 
-#include "zserio/IReflectable.h"
+#include "zserio/unsafe/IReflectable.h"
 #include "zserio/Span.h"
 #include "zserio/StringView.h"
 

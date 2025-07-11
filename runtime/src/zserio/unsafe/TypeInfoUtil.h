@@ -1,7 +1,7 @@
 #ifndef ZSERIO_TYPE_INFO_UTIL_INC_H
 #define ZSERIO_TYPE_INFO_UTIL_INC_H
 
-#include "zserio/ITypeInfo.h"
+#include "zserio/unsafe/ITypeInfo.h"
 
 namespace zserio
 {

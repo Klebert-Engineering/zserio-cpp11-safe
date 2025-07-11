@@ -17,11 +17,11 @@
 #include <sstream>
 #include <utility>
 
-#include "zserio/JsonReader.h"
-#include "zserio/JsonWriter.h"
-#include "zserio/ReflectableUtil.h"
+#include "zserio/unsafe/JsonReader.h"
+#include "zserio/unsafe/JsonWriter.h"
+#include "zserio/unsafe/ReflectableUtil.h"
 #include "zserio/Traits.h"
-#include "zserio/Walker.h"
+#include "zserio/unsafe/Walker.h"
 
 namespace zserio
 {

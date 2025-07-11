@@ -4,10 +4,10 @@
 #include <ostream>
 
 #include "zserio/AllocatorHolder.h"
-#include "zserio/IWalkObserver.h"
-#include "zserio/JsonEncoder.h"
+#include "zserio/unsafe/IWalkObserver.h"
+#include "zserio/unsafe/JsonEncoder.h"
 #include "zserio/OptionalHolder.h"
-#include "zserio/TypeInfoUtil.h"
+#include "zserio/unsafe/TypeInfoUtil.h"
 
 namespace zserio
 {

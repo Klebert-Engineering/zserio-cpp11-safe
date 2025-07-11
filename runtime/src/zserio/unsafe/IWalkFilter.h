@@ -1,9 +1,9 @@
 #ifndef ZSERIO_I_WALK_FILTER_H_INC
 #define ZSERIO_I_WALK_FILTER_H_INC
 
-#include "zserio/IReflectable.h"
-#include "zserio/ITypeInfo.h"
-#include "zserio/WalkerConst.h"
+#include "zserio/unsafe/IReflectable.h"
+#include "zserio/unsafe/ITypeInfo.h"
+#include "zserio/unsafe/WalkerConst.h"
 
 namespace zserio
 {

@@ -2,8 +2,8 @@
 #define ZSERIO_JSON_PARSER_H_INC
 
 #include "zserio/AnyHolder.h"
-#include "zserio/JsonDecoder.h"
-#include "zserio/JsonTokenizer.h"
+#include "zserio/unsafe/JsonDecoder.h"
+#include "zserio/unsafe/JsonTokenizer.h"
 #include "zserio/Span.h"
 
 namespace zserio

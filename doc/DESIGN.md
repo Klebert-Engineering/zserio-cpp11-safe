@@ -798,6 +798,11 @@ struct ZserioSafeConfig {
 2. **Memory Patterns**: Which patterns to recommend as standard?
 3. **Performance Targets**: Acceptable overhead for safety checks?
 4. **Certification Scope**: Which standards to formally pursue?
+5. **Service Architecture**: The current IService.h design tightly couples RPC services with reflection support. In Phase 1, we've used conditional compilation to make reflection optional, but this creates two different interfaces depending on build configuration. Should we:
+   - Keep the conditional compilation approach (current solution)?
+   - Create separate interfaces for reflection-based and byte-based services?
+   - Redesign the service architecture to cleanly separate concerns?
+   - Consider services as inherently unsafe for functional safety?
 
 ## Risk Mitigation
 
