@@ -36,6 +36,7 @@ mkdir -p "${MINI_BUILD_DIR}/generated"
 java -cp "${BUILD_DIR}/zserio-2.16.1/zserio_libs/zserio_core.jar:${BUILD_DIR}/extension/jar/zserio_cpp.jar" \
      zserio.tools.ZserioTool \
      -cpp11safe "${MINI_BUILD_DIR}/generated" \
+     -withoutSourcesAmalgamation \
      -src "${SCRIPT_DIR}/schema" \
      minizs.zs
 
