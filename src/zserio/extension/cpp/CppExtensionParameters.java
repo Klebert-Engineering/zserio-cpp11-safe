@@ -10,10 +10,10 @@ import zserio.extension.common.ZserioExtensionException;
 import zserio.tools.ExtensionParameters;
 
 /**
- * Command line parameters for C++ extension.
+ * Command line parameters for C++11 Safe extension.
  *
- * The class holds all command line parameters passed by core to the C++ extension, which are really
- * used by C++ emitters.
+ * The class holds all command line parameters passed by core to the C++11 Safe extension, which are really
+ * used by C++11 Safe emitters.
  */
 public final class CppExtensionParameters
 {
@@ -158,13 +158,13 @@ public final class CppExtensionParameters
 
     static void registerOptions(Options options)
     {
-        Option option = new Option(OptionCpp, true, "generate C++ sources");
+        Option option = new Option(OptionCpp, true, "generate C++11-safe sources");
         option.setArgName("outputDir");
         option.setRequired(false);
         options.addOption(option);
 
         option = new Option(OptionSetCppAllocator, true,
-                "set the C++ allocator to be used in generated code: std (default), polymorphic");
+                "set the C++11 Safe allocator to be used in generated code: std (default), polymorphic");
         option.setArgName("allocator");
         option.setRequired(false);
         options.addOption(option);
@@ -179,10 +179,10 @@ public final class CppExtensionParameters
 
         final OptionGroup sourcesAmalgamationGroup = new OptionGroup();
         option = new Option(
-                OptionWithSourcesAmalgamation, false, "enable amalgamation of generated C++ sources (default)");
+                OptionWithSourcesAmalgamation, false, "enable amalgamation of generated C++11 Safe sources (default)");
         sourcesAmalgamationGroup.addOption(option);
         option = new Option(
-                OptionWithoutSourcesAmalgamation, false, "disable amalgamation of generated C++ sources");
+                OptionWithoutSourcesAmalgamation, false, "disable amalgamation of generated C++11 Safe sources");
         sourcesAmalgamationGroup.addOption(option);
         sourcesAmalgamationGroup.setRequired(false);
         options.addOptionGroup(sourcesAmalgamationGroup);
@@ -246,7 +246,7 @@ public final class CppExtensionParameters
         }
     }
 
-    private final static String OptionCpp = "cpp";
+    private final static String OptionCpp = "cpp11safe";
     private final static String OptionSetCppAllocator = "setCppAllocator";
     private final static String OptionWithoutReflectionCode = "withoutReflectionCode";
     private static final String OptionWithReflectionCode = "withReflectionCode";

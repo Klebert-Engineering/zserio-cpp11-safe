@@ -15,14 +15,14 @@ import zserio.tools.Extension;
 import zserio.tools.ExtensionParameters;
 
 /**
- * The extension which generates C++ API sources.
+ * The extension which generates C++11 Safe API sources.
  */
 public final class CppExtension implements Extension
 {
     @Override
     public String getName()
     {
-        return "C++11 Generator";
+        return "C++11 Safe";
     }
 
     @Override
@@ -58,7 +58,7 @@ public final class CppExtension implements Extension
         rootNode.walk(compatibilityChecker);
 
         final ReservedKeywordsClashChecker cppKeywordsClashChecker =
-                new ReservedKeywordsClashChecker("C++", CPP_KEYWORDS);
+                new ReservedKeywordsClashChecker("C++11 Safe", CPP_KEYWORDS);
         rootNode.walk(cppKeywordsClashChecker);
 
         final CppInnerClassesClashChecker innerClassesClashChecker = new CppInnerClassesClashChecker();

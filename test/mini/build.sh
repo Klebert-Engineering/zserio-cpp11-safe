@@ -35,7 +35,7 @@ mkdir -p "${MINI_BUILD_DIR}/generated"
 # Use java with proper classpath
 java -cp "${BUILD_DIR}/zserio-2.16.1/zserio_libs/zserio_core.jar:${BUILD_DIR}/extension/jar/zserio_cpp.jar" \
      zserio.tools.ZserioTool \
-     -cpp "${MINI_BUILD_DIR}/generated" \
+     -cpp11safe "${MINI_BUILD_DIR}/generated" \
      -src "${SCRIPT_DIR}/schema" \
      minizs.zs
 

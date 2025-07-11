@@ -1,6 +1,6 @@
-# C++ Generator for Zserio
+# C++11 Safe Generator for Zserio
 
-Zserio extension generates C++ [serialization API](#serialization-api) from the Zserio schema together
+Zserio C++11 Safe extension generates C++ [serialization API](#serialization-api) from the Zserio schema together
 with [additional API](#additional-api).
 
 The generated code must be always linked with [C++ Runtime Library](https://zserio.org/doc/runtime/latest/cpp)
@@ -61,7 +61,7 @@ After building both components, you can use the extension directly with the Java
 ```bash
 java -cp "path/to/zserio_core.jar:path/to/zserio_cpp.jar" \
      zserio.tools.ZserioTool \
-     -cpp <output_dir> \
+     -cpp11safe <output_dir> \
      -src <source_dir> \
      <schema.zs>
 ```
@@ -70,7 +70,7 @@ Example:
 ```bash
 java -cp "../../../build/compiler/core/java/jar/zserio_core.jar:build/jar/zserio_cpp.jar" \
      zserio.tools.ZserioTool \
-     -cpp generated \
+     -cpp11safe generated \
      -src schemas \
      myschema.zs
 ```
@@ -81,7 +81,7 @@ This extension is designed to be integrated with the main zserio build system:
 
 1. The extension is already symlinked at `/Users/mistergc/dev/zserio/zserio/extern/zserio-cpp11-safe`
 2. When building the main zserio project, this extension will be automatically included
-3. The extension registers itself as "C++11 Generator" (as seen in `CppExtension.java`)
+3. The extension registers itself as "C++11 Safe" (as seen in `CppExtension.java`)
 
 #### Option 3: Using CMake Integration
 

@@ -1,15 +1,15 @@
 package zserio.extension.cpp;
 
 /**
- * C++ extension version information.
+ * C++11 Safe extension version information.
  *
- * C++ extension version will be reported to Zserio core and will be stored in MANIFEST.MF.
+ * C++11 Safe extension version will be reported to Zserio core and will be stored in MANIFEST.MF.
  *
  * Expected Zserio core version will be used to check if the extension can be safely loaded.
  */
 public final class CppExtensionVersion
 {
-    /** C++ extension version string. */
+    /** C++11 Safe extension version string. */
     public static final String CPP_EXTENSION_VERSION_STRING = "1.2.1";
 
     /** Expected Zserio core version string. */
@@ -21,6 +21,6 @@ public final class CppExtensionVersion
     /** Zserio JSON version string. */
     public static final String JSON_VERSION_STRING = "1.0";
 
-    /** C++ extension version in integer value to allow version checking in generated code. */
+    /** C++11 Safe extension version in integer value to allow version checking in generated code. */
     public static final long CPP_EXTENSION_VERSION_NUMBER = 1002001;
 }

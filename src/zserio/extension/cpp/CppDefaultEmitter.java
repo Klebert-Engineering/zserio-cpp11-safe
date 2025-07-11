@@ -17,7 +17,7 @@ import zserio.extension.common.PackedTypesCollector;
 import zserio.extension.common.ZserioExtensionException;
 
 /**
- * Base class for all C++ emitters.
+ * Base class for all C++11 Safe emitters.
  */
 abstract class CppDefaultEmitter extends DefaultTreeWalker
 {
