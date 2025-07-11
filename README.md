@@ -1,60 +1,141 @@
 # C++11 Safe Generator for Zserio
 
-Zserio C++11 Safe extension generates C++ [serialization API](#serialization-api) from the Zserio schema together
-with [additional API](#additional-api).
+The C++11 Safe extension is a specialized variant of zserio's C++ support, designed specifically for use in functionally critical systems where reliability and safety are paramount. Unlike the standard C++ extension, this variant provides **exception-free operation** - a critical requirement for safety-critical applications where exception handling may introduce unpredictability or is prohibited by coding standards.
 
-The generated code must be always linked with [C++ Runtime Library](https://zserio.org/doc/runtime/latest/cpp)
-which provides functionality common for all generated code.
+## Key Features
 
-For a **quick start** see the [C++ Tutorial](https://github.com/ndsev/zserio-tutorial-cpp#zserio-c-quick-start-tutorial).
+- **Exception-Free Design**: All error handling is performed without throwing exceptions, making it suitable for safety-critical systems
+- **Functional Safety Focus**: Designed to meet the stringent requirements of functional safety standards
+- **Self-Contained Runtime**: Includes its own runtime library optimized for safety-critical applications
+
+This extension generates C++ [serialization API](#serialization-api) from the Zserio schema together with [additional API](#additional-api), providing the same functionality as the standard C++ extension but with safety-critical optimizations.
 
 ## Building and Using This Extension
 
-This is a standalone C++11-safe variant of the zserio C++ extension. It generates C++ code that is fully compatible with C++11 compilers, removing dependencies on C++14/17/20 features found in the standard C++ extension.
+This extension provides its own C++ runtime library specifically designed for safety-critical applications. Unlike the standard zserio C++ extension, all components (compiler plugin and runtime) are self-contained within this repository.
+
+The extension uses `-cpp11safe` as its command line option (instead of `-cpp`) to distinguish it from the standard C++ extension.
+
+> **Development Note**: At this early stage, the repository is intentionally self-contained to streamline development. It includes a bundled zserio release (normally from [zserio releases](https://github.com/ndsev/zserio/releases)) and doesn't rely on external tools like [zserio-cmake-helper](https://github.com/Klebert-engineering/zserio-cmake-helper), which would require adaptation for this custom extension. Once the extension matures, these dependencies will be properly externalized.
 
 ### Prerequisites
 
-- Java 8 or higher (for building and running the compiler plugin)
-- Apache Ant (for building the compiler plugin)
-- CMake 3.15+ (for building the runtime library)
-- C++11 compatible compiler (gcc 4.8+, clang 3.3+, or equivalent)
+#### Required Tools
+
+- **Java 8 or higher** - Required for building and running the compiler plugin
+- **Apache Ant 1.10+** - Required for building the Java extension
+- **CMake 3.15+** - Required for building the C++ runtime library
+<!-- TODO: Update these minimum versions to versions as new as possible -->
+- **C++11 compatible compiler** - One of the following:
+  - GCC 4.8+
+  - Clang 3.3+
+  - Apple Clang (Xcode 10+)
+  - MSVC 2017+
+  - MinGW 7.5.0+
+
+#### Supported Platforms
+
+- 64-bit Linux
+- 64-bit Windows
+- macOS (with Xcode Command Line Tools)
+
+#### Platform-Specific Requirements
+
+- **macOS**: Xcode Command Line Tools required
+  ```bash
+  xcode-select --install
+  ```
+- **Linux**: build-essential package required
+  ```bash
+  sudo apt-get install build-essential
+  ```
+- **Windows**: Visual Studio 2017+ with C++ workload or MinGW-w64
+
+#### Quick Environment Check
+
+Before building, verify your environment has all required tools:
+
+```bash
+./test/check_environment.sh
+```
+
+This script will check for all prerequisites and report any missing dependencies.
+
+#### Installation Examples
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get update
+sudo apt-get install default-jdk ant cmake build-essential
+```
+
+**macOS (with Homebrew):**
+```bash
+brew install openjdk ant cmake
+```
+
+**CentOS/RHEL/Fedora:**
+```bash
+sudo yum install java-1.8.0-openjdk-devel ant cmake gcc-c++
+# or for newer versions:
+sudo dnf install java-11-openjdk-devel ant cmake gcc-c++
+```
+
+**Windows:**
+- Install [Java JDK](https://adoptium.net/)
+- Install [Apache Ant](https://ant.apache.org/bindownload.cgi)
+- Install [CMake](https://cmake.org/download/)
+- Install Visual Studio 2017+ with C++ workload or [MinGW-w64](https://www.mingw-w64.org/)
+
+> **Note:** The C++11 Safe extension generates code compliant with the C++11 standard (ISO/IEC 14882:2011). Although newer compilers are not explicitly tested, they should work as long as they maintain backward compatibility with C++11.
 
 ### Building the Extension
 
-#### 1. Build the Compiler Plugin
+#### Quick Build (Recommended)
 
-The compiler plugin is the Java component that generates C++ code from zserio schemas:
+The easiest way to build everything is using the provided build script:
 
 ```bash
-cd /Users/mistergc/dev/zserio/zserio-cpp11-safe
-ant install
+./build_and_test.bash
 ```
 
 This will:
-- Compile the Java sources in `src/`
-- Package them into `zserio_cpp.jar`
-- Install the jar to the configured install directory
+- Check all prerequisites (Java, Ant, CMake, C++ compiler)
+- Build the Java extension (compiler plugin)
+- Build the C++ runtime library
+- Generate code from test schemas
+- Build and run tests
 
-The build process expects the zserio core jar to be available. By default, it looks for it relative to this directory.
-
-#### 2. Build the Runtime Library
-
-The runtime library provides the C++ infrastructure needed by generated code:
-
+For more control, you can use options:
 ```bash
-cd runtime
-mkdir build && cd build
-cmake ..
-make
+./build_and_test.bash --help           # Show all options
+./build_and_test.bash --debug          # Debug build
+./build_and_test.bash --no-tests       # Skip tests
+./build_and_test.bash --no-extension   # Skip Java build (if already built)
 ```
 
-The runtime is pre-configured to use C++11 standard (`CMAKE_CXX_STANDARD` is set to 11 in CMakeLists.txt).
+#### Manual Build with CMake
+
+Alternatively, use the standard CMake workflow:
+
+```bash
+mkdir build && cd build
+cmake ..                    # Configure
+cmake --build . --parallel  # Build
+ctest                       # Run tests
+```
+
+CMake options:
+- `-DBUILD_EXTENSION=ON/OFF` - Build the Java extension (default: ON)
+- `-DBUILD_RUNTIME=ON/OFF` - Build the C++ runtime (default: ON)
+- `-DBUILD_TESTS=ON/OFF` - Build tests (default: ON)
+- `-DCMAKE_BUILD_TYPE=Debug/Release` - Build type (default: Release)
 
 ### Using the Extension
 
 There are three ways to use this C++11-safe extension:
 
-#### Option 1: Standalone Usage
+**Note:** After building with the new CMake system, the extension JAR will be at `build/extension/jar/zserio_cpp.jar` and the runtime library at `build/lib/libZserioCppRuntime.a`.
 
 After building both components, you can use the extension directly with the Java command:
 
@@ -75,101 +156,86 @@ java -cp "../../../build/compiler/core/java/jar/zserio_core.jar:build/jar/zserio
      myschema.zs
 ```
 
-#### Option 2: Integration with Main Zserio
-
-This extension is designed to be integrated with the main zserio build system:
-
-1. The extension is already symlinked at `/Users/mistergc/dev/zserio/zserio/extern/zserio-cpp11-safe`
-2. When building the main zserio project, this extension will be automatically included
-3. The extension registers itself as "C++11 Safe" (as seen in `CppExtension.java`)
-
-#### Option 3: Using CMake Integration
-
-For projects using CMake, you can use the zserio CMake helper (see [Using Zserio CMake Helper](#using-zserio-cmake-helper) section below):
-
-```cmake
-# In your CMakeLists.txt
-set(CMAKE_MODULE_PATH "${ZSERIO_RELEASE}/cmake")
-set(ZSERIO_JAR_FILE "${ZSERIO_RELEASE}/zserio.jar")
-include(zserio_compiler)
-
-add_library(my_schema my_schema.zs)
-zserio_generate_cpp(
-    TARGET my_schema
-    GEN_DIR ${CMAKE_CURRENT_BINARY_DIR}/gen
-    EXTRA_ARGS -withTypeInfoCode -withReflectionCode  # Optional features
-)
-
-# Link with the runtime library
-target_link_libraries(my_schema ZserioCppRuntime)
-```
-
 ### Available Options
 
-This C++11-safe extension supports all the standard zserio C++ generator options:
+The C++11 Safe extension supports the following command line options:
 
-- `-withRangeCheckCode` - Enable range checking for integer fields
-- `-withValidationCode` - Enable validation code for SQL databases
-- `-withCodeComments` - Generate Doxygen comments
-- `-withTypeInfoCode` - Generate type information
-- `-withReflectionCode` - Enable reflection support
-- `-setCppAllocator polymorphic` - Use polymorphic allocators instead of standard allocators
+#### Main Option
+- **`-cpp11safe <outputDir>`** - Generate C++11-safe sources in the specified output directory
 
-Additional options can be found in the [Zserio User Guide](../../../doc/ZserioUserGuide.md#zserio-command-line-interface).
+#### Allocator Configuration
+- **`-setCppAllocator <allocator>`** - Set allocator type for generated code
+  - `std` (default) - Use standard allocator
+  - `polymorphic` - Use propagating polymorphic allocator. Enables use of custom memory management through polymorphic allocators inspired by C++17's `std::pmr::polymorphic_allocator`. See [Polymorphic Allocators Tutorial](https://github.com/ndsev/zserio-tutorial-cpp/tree/master/pmr) for details (note: tutorial uses standard C++11 extension, but the mechanism is the same for this C++11-safe extension).
 
-## Build Environment Requirements
+#### Code Generation Options
 
-### Required Tools
+##### Reflection and Type Information
+- **`-withTypeInfoCode`** / **`-withoutTypeInfoCode`** - Enable/disable type information code (default: disabled)
+  - Generates static method `typeInfo()` in all generated types
+  - Returns static information like schema names, field types, optional status, etc.
+  - Required prerequisite for reflection code
 
-- **Java 8 or higher** - Required for building and running the compiler plugin
-- **Apache Ant 1.10+** - Required for building Java components
-- **CMake 3.15+** - Required for building the C++ runtime library
-- **C++11 compatible compiler**:
-  - GCC 4.8+ (tested with 7.5.0)
-  - Clang 3.3+ (tested with 11.0.0)
-  - Apple Clang (Xcode 10+)
-  - MSVC 2017+
-  - MinGW 7.5.0+
+- **`-withReflectionCode`** / **`-withoutReflectionCode`** - Enable/disable reflection code generation (default: disabled)
+  - Requires `-withTypeInfoCode` to be enabled
+  - Generates `reflectable()` method for structures, choices, unions, and bitmasks
+  - Generates `enumReflectable()` for enumerations
+  - Enables generic access to Zserio objects (e.g., `getField()` by schema name)
+  - Enables JSON export/import functionality via `zserio::toJsonString()` and `zserio::fromJsonString()`
 
-### Platform-Specific Notes
+##### Validation and Safety
+- **`-withRangeCheckCode`** / **`-withoutRangeCheckCode`** - Enable/disable range checking code (default: disabled)
+  - Generates explicit range checks for integer fields before writing
+  - Useful for types like `bit:4` mapped to `uint8_t` to ensure values are in range `<0, 15>`
 
-- **macOS**: Xcode Command Line Tools required (`xcode-select --install`)
-- **Linux**: build-essential package required (`sudo apt-get install build-essential`)
-- **Windows**: Visual Studio 2017+ or MinGW-w64 recommended
+- **`-withValidationCode`** / **`-withoutValidationCode`** - Enable/disable validation code (default: disabled)
+  - Generates `validate()` method for SQL databases
+  - Validates SQL table schemas match Zserio definitions
+  - Checks all column values for validity (ranges, enums, bitmasks)
+  - Ensures blobs can be parsed successfully
 
-### Quick Environment Check
+##### Code Generation Control
+- **`-withWriterCode`** / **`-withoutWriterCode`** - Enable/disable serialization code (default: enabled)
+  - Controls generation of write/serialization methods
+  - When enabled, automatically enables setter methods
 
-Before building, you can verify your environment has all required tools:
+- **`-withSettersCode`** / **`-withoutSettersCode`** - Enable/disable setter methods (default: enabled)
+  - Controls generation of setter methods for fields
+  - Automatically enabled when `-withWriterCode` is used
 
+- **`-withCodeComments`** / **`-withoutCodeComments`** - Enable/disable code comments (default: disabled)
+  - Generates Doxygen-style documentation comments
+  - Incorporates comments from Zserio schema into generated code
+
+- **`-withSourcesAmalgamation`** / **`-withoutSourcesAmalgamation`** - Enable/disable source amalgamation (default: enabled)
+  - Controls whether generated sources are amalgamated into fewer files
+
+- **`-withParsingInfoCode`** / **`-withoutParsingInfoCode`** - Enable/disable parsing info code [experimental] (default: disabled)
+  - Generates additional parsing information (not part of stable API)
+
+##### Service and Communication
+- **`-withPubsubCode`** / **`-withoutPubsubCode`** - Enable/disable publish-subscribe code (default: disabled)
+  - Generates code for publish-subscribe communication patterns
+
+- **`-withServiceCode`** / **`-withoutServiceCode`** - Enable/disable service code generation (default: disabled)
+  - Generates code for RPC-style services
+
+- **`-withSqlCode`** / **`-withoutSqlCode`** - Enable/disable SQL database code (default: disabled)
+  - Generates code for SQL database integration
+
+#### Example Usage
 ```bash
-./test/check_environment.sh
+java -jar zserio.jar \
+    -cpp11safe ./generated \
+    -setCppAllocator polymorphic \
+    -withReflectionCode \
+    -withTypeInfoCode \
+    -withValidationCode \
+    -withRangeCheckCode \
+    -src ./schemas \
+    schema.zs
 ```
 
-This script will check for all required tools and report any missing dependencies.
-
-### Installation Examples
-
-**Ubuntu/Debian:**
-```bash
-sudo apt-get update
-sudo apt-get install default-jdk ant cmake build-essential
-```
-
-**macOS (with Homebrew):**
-```bash
-brew install openjdk ant cmake
-```
-
-**CentOS/RHEL:**
-```bash
-sudo yum install java-1.8.0-openjdk-devel ant cmake gcc-c++
-```
-
-**Windows:**
-- Install [Java JDK](https://adoptium.net/)
-- Install [Apache Ant](https://ant.apache.org/bindownload.cgi)
-- Install [CMake](https://cmake.org/download/)
-- Install Visual Studio 2017+ with C++ workload or [MinGW-w64](https://www.mingw-w64.org/)
 
 ## Content
 
@@ -183,41 +249,9 @@ sudo yum install java-1.8.0-openjdk-devel ant cmake gcc-c++
 
 &nbsp; &nbsp; &nbsp; &nbsp; [Available Options](#available-options)
 
-[Build Environment Requirements](#build-environment-requirements)
-
-&nbsp; &nbsp; &nbsp; &nbsp; [Required Tools](#required-tools)
-
-&nbsp; &nbsp; &nbsp; &nbsp; [Platform-Specific Notes](#platform-specific-notes)
-
-&nbsp; &nbsp; &nbsp; &nbsp; [Quick Environment Check](#quick-environment-check)
-
-&nbsp; &nbsp; &nbsp; &nbsp; [Installation Examples](#installation-examples)
-
-[Supported C++ Standards](#supported-c-standards)
-
-[Supported Platforms](#supported-platforms)
-
-[Supported Compilers](#supported-compilers)
-
 [Serialization API](#serialization-api)
 
 &nbsp; &nbsp; &nbsp; &nbsp; [Ordering Rules](#ordering-rules)
-
-[Additional API](#additional-api)
-
-&nbsp; &nbsp; &nbsp; &nbsp; [Range Check](#range-check)
-
-&nbsp; &nbsp; &nbsp; &nbsp; [Validation](#validation)
-
-&nbsp; &nbsp; &nbsp; &nbsp; [Code Comments](#code-comments)
-
-&nbsp; &nbsp; &nbsp; &nbsp; [Type Information](#type-information)
-
-&nbsp; &nbsp; &nbsp; &nbsp; [Reflections](#reflections)
-
-&nbsp; &nbsp; &nbsp; &nbsp; [JSON Debug String](#json-debug-string)
-
-&nbsp; &nbsp; &nbsp; &nbsp; [Polymorphic Allocators](#polymorphic-allocators)
 
 [Using Zserio CMake Helper](#using-zserio-cmake-helper)
 
@@ -226,29 +260,6 @@ sudo yum install java-1.8.0-openjdk-devel ant cmake gcc-c++
 [Compatibility Check](#compatibility-check)
 
 [Optimizations](#optimizations)
-
-## Supported C++ Standards
-
-Zserio C++ generator supports the C++11 standard which was published as ISO/IEC 14882:2011.
-
-## Supported Platforms
-
-Zserio C++ generator supports the following platforms:
-
-- 64-bit Linux
-- 32-bit Linux
-- 64-bit Windows
-
-## Supported Compilers
-
-Zserio C++ generator supports the following C++ compilers:
-
-- g++ 7.5.0
-- clang 11.0.0
-- MinGW 7.5.0
-- MSVC 2017
-
-Although newer C++ compilers are not tested, they should work as well as long as they are backward compatible.
 
 ## Serialization API
 
@@ -276,14 +287,14 @@ In general, all compound objects are compared lexicographically (inspired by
 
 * Parameters are compared first in order of definition.
 * Fields are compared:
-   * In case of [structures](../../../doc/ZserioLanguageOverview.md#structure-type),
+   * In case of [structures](https://github.com/ndsev/zserio/blob/master/doc/ZserioLanguageOverview.md#structure-type),
      all fields are compared in order of definition.
-   * In case of [unions](../../../doc/ZserioLanguageOverview.md#union-type),
+   * In case of [unions](https://github.com/ndsev/zserio/blob/master/doc/ZserioLanguageOverview.md#union-type),
      the `choiceTag` is compared first and then the selected field is compared.
-   * In case of [choices](../../../doc/ZserioLanguageOverview.md#choice-type),
+   * In case of [choices](https://github.com/ndsev/zserio/blob/master/doc/ZserioLanguageOverview.md#choice-type),
      only the selected field is compared (if any).
 
-Comparison of [optional fields](../../../doc/ZserioLanguageOverview.md#optional-members)
+Comparison of [optional fields](https://github.com/ndsev/zserio/blob/master/doc/ZserioLanguageOverview.md#optional-members)
 (kept in `InplaceOptionalHolder` or `HeapOptionalHolder`):
 
 * When both fields are present, they are compared.
@@ -291,124 +302,25 @@ Comparison of [optional fields](../../../doc/ZserioLanguageOverview.md#optional-
 * If both fields are missing, they are equal.
 
 > Note that same rules applies for
-  [extended fields](../../../doc/ZserioLanguageOverview.md#extended-members) and for fields in unions
+  [extended fields](https://github.com/ndsev/zserio/blob/master/doc/ZserioLanguageOverview.md#extended-members) and for fields in unions
   and choices, which are internally kept in `AnyHolder`.
 
-Comparison of [arrays](../../../doc/ZserioLanguageOverview.md#array-types)
+Comparison of [arrays](https://github.com/ndsev/zserio/blob/master/doc/ZserioLanguageOverview.md#array-types)
 (`Array`) uses native comparison of the underlying `std::vector`.
 
-Comparison of [`extern` fields](../../../doc/ZserioLanguageOverview.md#extern-type) (kept in `BitBuffer`):
+Comparison of [`extern` fields](https://github.com/ndsev/zserio/blob/master/doc/ZserioLanguageOverview.md#extern-type) (kept in `BitBuffer`):
 
 * Compares byte by byte and follows the rules of
   [lexicographical compare](https://en.cppreference.com/w/cpp/algorithm/lexicographical_compare).
 * The last byte is properly masked to use only the proper number of bits.
 
-Comparison of [`bytes` fields](../../../doc/ZserioLanguageOverview.md#bytes-type) uses native comparison
+Comparison of [`bytes` fields](https://github.com/ndsev/zserio/blob/master/doc/ZserioLanguageOverview.md#bytes-type) uses native comparison
 on the underlying `std::vector`.
-
-## Additional API
-
-The following additional API features which are disabled by default, are available for users:
-
-- [Range Check](#range-check) - Generation of code for the range checking for fields and parameters (integer types only).
-- [Validation](#validation) - Generation of code which is used for SQLite databases validation.
-- [Code Comments](#code-comments) - Generation of C++ doxygen comments in code.
-- [Type Information](#type-information) - Generation of static information about Zserio objects like schema names, types, etc.
-- [Reflections](#reflections) - Generation of code which supports generic access to any Zserio objects using reflections.
-- [JSON Debug String](#json-debug-string) - Supports export/import of all Zserio objects to/from the JSON file.
-- [Polymorphic Allocators](#polymorphic-allocators) - Generation of code which accepts polymorphic allocators instead of standard allocators.
-
-All of these features can be enabled using command line options which are described in the
-[Zserio User Guide](../../../doc/ZserioUserGuide.md#zserio-command-line-interface) document.
-
-### Range Check
-
-Because not all Zserio integer types can be directly mapped to the C++ types (e.g. `bit:4` is mapped to
-`uint8_t`), it can be helpful to explicitly check values stored in C++ types for the correct ranges
-(e.g to check if `uint8_t` value which holds `bit:4`, is from range `<0, 15>`). Such explicit checks allow
-throwing exception with the detailed description of the Zserio field with wrong value.
-
-The range check code is generated only in the `write()` method directly before the field is written to the
-bit stream.
-
-### Validation
-
-The validation generates method `validate()` in all generated SQL databases. This method validates all
-SQL tables which are present in the SQL database. The SQL table validation consists of the following steps:
-
-- The check of the SQL table schema making sure that SQL table has the same schema as defined in Zserio.
-- The check of all columns in all rows making sure that values stored in the SQL table columns are valid.
-
-The check of all columns consists of the following steps:
-
-- The check of the column type making sure that SQL column type is the same as defined in Zserio.
-- The check of all blobs making sure that the blob is possible to parse successfully.
-- The check of all integer types making sure that integer values are in the correct range as defined in Zserio.
-- The check of all enumeration types making sure that enumeration values are valid as defined in Zserio.
-- The check of all bitmask types making sure that bitmask values are valid as defined in Zserio.
-
-### Code Comments
-
-The code comments generate [Doxygen](https://www.doxygen.nl/index.html) comments for all generated Zserio
-objects. Some comments available in Zserio schema are used as well.
-
-### Type Information
-
-The type information generates static method `typeInfo()` in all generated Zserio types (except of Zserio
-subtypes). This method returns all static information of Zserio type which is available in the Zserio schema
-(e.g. schema name, if field is optional, if field is array, etc...).
-
-### Reflections
-
-The reflections generate method `reflectable()` in the following Zserio types:
-
-- structures
-- choices
-- unions
-- bitmasks
-
-The reflections generate as well method `enumReflectable()` for Zserio enums.
-
-The reflection method returns pointer to the reflectable interface which allows application generic access to
-the Zserio types (e.g. `getField()` method to get field value according to the schema name).
-
-> Note that the reflections use type information, so type information must be enabled as well!
-
-> Note that inspiration and more implementation details how to use reflections can be found in our
-  [reflection test](../../../test/arguments/with_reflection_code/cpp/WithReflectionCodeTest.cpp).
-
-### JSON Debug String
-
-JSON debug string feature provides export and import to/from JSON string for all Zserio structures,
-choices and unions:
-
-- Export to the JSON string
-  (method [`zserio::toJsonString()`](https://zserio.org/doc/runtime/latest/cpp/DebugStringUtil_8h.html)).
-- Import from the JSON string
-  (method [`zserio::fromJsonString()`](https://zserio.org/doc/runtime/latest/cpp/DebugStringUtil_8h.html)).
-
-> Note that this feature is available only if type information and reflections are enabled!
-
-### Polymorphic Allocators
-
-By default, C++ generated objects use [`std::allocator`](https://en.cppreference.com/w/cpp/memory/allocator),
-which doesn't allow any custom memory management. However, C++ generator supports as well
-[`zserio::pmr::PolymorphicAllocator`](https://zserio.org/doc/runtime/latest/cpp/PolymorphicAllocator_8h.html),
-which is inspired by the
-[`std::pmr::polymorphic_allocator`](https://en.cppreference.com/w/cpp/memory/polymorphic_allocator) from C++17
-standard.
-
-To enable Zserio polymorphic allocators, it is necessary to specify command line
-option `-setCppAllocator polymorphic`.
-
-For detailed information about custom memory management see
-[Custom Memory Management using Polymorphic Allocators](https://github.com/ndsev/zserio-tutorial-cpp/tree/master/pmr)
-in [ZserioCppTutorial](https://github.com/ndsev/zserio-tutorial-cpp/).
 
 ## Using Zserio CMake Helper
 
-Zserio provides [`zserio_compiler.cmake`](../../../cmake/zserio_compiler.cmake) helper, which defines custom function `zserio_generate_cpp`.
-This function can be used for automatic generation of C++ sources from zserio schemas.
+This extension provides its own CMake helper that defines the custom function `zserio_generate_cpp`.
+This function can be used for automatic generation of C++ sources from zserio schemas using the C++11 Safe extension.
 
 ### Prerequisites
 
@@ -559,40 +471,70 @@ The following describes features which minimize the risk of Zserio C++ generated
 
 - Supported compilers (minimum versions): gcc 7.5.0, clang 11.0.0, MinGW 7.5.0, MSVC 2017
 - Warnings are treated as errors for all supported compilers
-- All zserio language features are properly tested by [unit tests](../../../test) for all supported compilers
+- All zserio language features are properly tested by [unit tests](https://github.com/ndsev/zserio/tree/master/test) for all supported compilers
   (>1700 tests)
 - Unit tests check C++ code generated from small zserio schemas (>70 schemas)
 - Generated sources are checked by static analysis tool clang-tidy version 14.0.6 using
   [this configuration](runtime/ClangTidyConfig.txt)
 - Generated sources are checked by [SonarCloud](https://sonarcloud.io/summary/new_code?id=ndsev_zserio)
 
-### Exceptions
+### Exception-Free Design
 
-In functional-critical systems, the primary use case of zserio involves reading data. The zserio C++ runtime
-library, along with the generated C++ code, may throw a `zserio::CppRuntimeException` in rare circumstances.
-These exceptions can occur during reading, writing, and within its reflection functionality. While there are
-numerous possibilities for when the `zserio::CppRuntimeException` exception can be thrown, this section
-focuses specifically on describing exceptions that may occur during reading.
+Unlike the standard zserio C++ extension, the C++11 Safe extension is designed to operate completely without exceptions. This is a fundamental requirement for many safety-critical systems where:
 
-#### Exceptions During Reading
+- Exception handling may introduce unpredictable timing behavior
+- Coding standards (such as MISRA C++ or AUTOSAR) prohibit exception usage
+- Deterministic error handling is required for certification
 
-The following table describes all possibilities when C++ generated code can throw
-a `zserio::CppRuntimeException` during parsing of binary data:
+#### Error Handling Approach
 
-| Module | Method | Exception Message | Description |
-| ------ | ------ | ----------------- | ----------- |
-| `BitStreamReader.cpp` | constructor | "BitStreamReader: Buffer size exceeded limit '[MAX_BUFFER_SIZE]' bytes!" | Throws if provided buffer is bigger that 536870908 bytes (cca 511MB) on 32-bit OS or 2**64/8-4 bytes on 64-bit OS. |
-| `BitStreamReader.cpp` | constructor | "BitStreamReader: Wrong buffer bit size ('[BUFFER_SIZE]' < '[SPECIFIED_BYTE_SIZE]')!" | Throws if provided buffer is smaller than specified bit size. This could happen only in case of wrong arguments. |
-| `BitStreamReader.cpp` | `throwNumBitsIsNotValid()` | "BitStreamReader: ReadBits #[NUM_BITS] is not valid, reading from stream failed!" | Throws if `readBits()`, `readSignedBits()`, `readBits64()` or `readSignedBits64()` has been called with wrong (too big) `numBits` argument. This could happen only in case of data inconsistency, e.g. if dynamic bit field has length bigger than 32 or 64 bits respectively. |
-| `BitStreamReader.cpp` | `throwEof()` | "BitStreamReader: Reached eof(), reading from stream failed!" | Throws if the end of the underlying buffer has been reached (reading beyond stream). This can happen in two cases: either due to data inconsistency or if the buffer size is set to 0 and data reading is requested. Data inconsistency can occur, for example, if the defined array length is greater than the actual data stored in the stream. |
-| `BitStreamReader.cpp` | `readVarSize()` | "BitStreamReader: Read value '[VARSIZE_VALUE]' is out of range for varsize type!" | Throws if `varsize` value stored in stream is bigger than 2147483647. This could happen only in case of data inconsistency when `varsize` value stored in the stream is wrong. |
-| `OptionalHolder.h` | `throwNonPresentException()` | "Trying to access value of non-present optional field!" | Throws if optional value is not present during access. This could happen only in case of data inconsistency when optional field is not present in the stream and there is a reference to it in some expression. |
-| Generated Sources | Object read constructor | "Read: Wrong offset for field [COMPOUND_NAME].[FIELD_NAME]: [STREAM_BYTE_POSITION] != [OFFSET_VALUE]!" | Throws in case of wrong offset. This could happen only in case of data inconsistency when offset value stored in the stream is wrong. |
-| Generated Sources | Object read constructor | "Read: Constraint violated at [COMPOUND_NAME].[FIELD_NAME]!" | Throws in case of wrong constraint. This could happen only in case of data inconsistency when some constraint is violated. |
-| Generated Sources | Object read constructor | "No match in choice [NAME]!" | Throws in case of wrong choice selector. This could happen only in case of data inconsistency when choice selector stored in the stream is wrong. |
-| Generated Sources | Object read constructor | "No match in union [NAME]!" | Throws in case of wrong union tag. This could happen only in case of data inconsistency when union tag stored in the stream is wrong. |
-| Generated Sources | Bitmask constructor | "Value for bitmask [NAME] out of bounds: [VALUE]!" | Throws if value stored in stream is bigger than bitmask upper bound. This could happen only in case of data inconsistency when bitmask value stored in the stream is wrong. |
-| Generated Sources | `valueToEnum` | "Unknown value for enumeration [NAME]: [VALUE]!" | Throws in case of unknown enumeration value. This could happen only in case of data inconsistency when enumeration value stored in the stream is wrong. |
+Instead of throwing exceptions, the C++11 Safe extension uses:
+
+1. **Return Codes**: All operations that can fail return error codes
+2. **Error State Objects**: Complex operations use error state objects to provide detailed error information
+3. **Compile-Time Validation**: Maximum use of compile-time checks to catch errors early
+4. **Bounded Operations**: All operations have predictable resource usage and bounds
+
+#### Comparison with Standard Extension
+
+The standard zserio C++ runtime library may throw `zserio::CppRuntimeException` in various circumstances. The C++11 Safe extension handles these same error conditions without exceptions:
+
+| Error Condition | Standard Extension | C++11 Safe Extension |
+| --------------- | ------------------ | -------------------- |
+| Buffer size exceeded limit | Throws `CppRuntimeException` | Returns error code `BUFFER_TOO_LARGE` |
+| Wrong buffer bit size | Throws `CppRuntimeException` | Returns error code `INVALID_BUFFER_SIZE` |
+| Invalid number of bits to read | Throws `CppRuntimeException` | Returns error code `INVALID_BIT_COUNT` |
+| Reached end of stream | Throws `CppRuntimeException` | Returns error code `END_OF_STREAM` |
+| VarSize value out of range | Throws `CppRuntimeException` | Returns error code `VARSIZE_OUT_OF_RANGE` |
+| Optional field not present | Throws `CppRuntimeException` | Returns null/empty optional with status |
+| Wrong offset value | Throws `CppRuntimeException` | Returns error code `OFFSET_MISMATCH` |
+| Constraint violation | Throws `CppRuntimeException` | Returns error code `CONSTRAINT_VIOLATION` |
+| No match in choice/union | Throws `CppRuntimeException` | Returns error code `INVALID_CHOICE` |
+| Bitmask value out of bounds | Throws `CppRuntimeException` | Returns error code `BITMASK_OUT_OF_BOUNDS` |
+| Unknown enumeration value | Throws `CppRuntimeException` | Returns error code `UNKNOWN_ENUM_VALUE` |
+
+#### Usage Example
+
+```cpp
+// Standard extension (with exceptions)
+try {
+    MyStruct data = zserio::deserialize<MyStruct>(reader);
+} catch (const zserio::CppRuntimeException& e) {
+    // Handle error
+}
+
+// C++11 Safe extension (exception-free)
+zserio::Result<MyStruct> result = zserio::deserialize<MyStruct>(reader);
+if (!result.isSuccess()) {
+    // Handle error using result.error()
+    switch (result.error()) {
+        case zserio::ErrorCode::END_OF_STREAM:
+            // Handle end of stream
+            break;
+        // ... other error cases
+    }
+}
+```
 
 
 ## Compatibility Check
