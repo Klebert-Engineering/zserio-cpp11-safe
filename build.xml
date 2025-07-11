@@ -118,6 +118,25 @@ spotbugs.home_dir             - Location of the spotbugs tool. If not set, spotb
         </javadoc>
     </target>
 
+    <target name="jar_without_javadocs" depends="compile">
+        <mkdir dir="${zserio_cpp.jar_dir}"/>
+        <copy todir="${zserio_cpp.build_dir}/metainf" overwrite="true">
+            <fileset dir="${zserio_cpp.base_dir}/metainf"/>
+        </copy>
+
+        <jar destfile="${zserio_cpp.jar_file}">
+            <fileset dir="${zserio_cpp.classes_dir}">
+                <include name="zserio/**"/>
+            </fileset>
+            <zipfileset dir="${zserio_cpp.base_dir}/freemarker" includes="*.ftl"
+                prefix="freemarker/cpp"/>
+            <manifest>
+                <attribute name="Implementation-Version" value="${zserio_cpp.version}"/>
+            </manifest>
+            <metainf dir="${zserio_cpp.build_dir}/metainf" includes="**/*"/>
+        </jar>
+    </target>
+
     <target name="jar" depends="compile, javadocs">
         <mkdir dir="${zserio_cpp.jar_dir}"/>
         <copy todir="${zserio_cpp.build_dir}/metainf" overwrite="true">

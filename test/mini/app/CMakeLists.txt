@@ -1,45 +1,16 @@
-cmake_minimum_required(VERSION 3.15)
-project(MiniTest CXX)
+# Mini test application
 
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-# Find the zserio runtime library
-find_library(ZSERIO_RUNTIME_LIB 
-    NAMES ZserioCppRuntime
-    PATHS 
-        ${CMAKE_CURRENT_SOURCE_DIR}/../../build/runtime/runtime
-        ${CMAKE_CURRENT_SOURCE_DIR}/../../build/runtime
-    NO_DEFAULT_PATH
-)
-
-if(NOT ZSERIO_RUNTIME_LIB)
-    message(FATAL_ERROR "Zserio runtime library not found. Build runtime first.")
-endif()
-
-# Include directories
-include_directories(
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../build/mini/generated
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../../runtime/src
-)
-
-# Source files
+# Source files for the test
 set(SOURCES
     main.cpp
     MiniTest.cpp
 )
 
-# Add all generated source files
-file(GLOB GENERATED_SOURCES 
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../build/mini/generated/minizs/*.cpp"
-)
+# Create test executable
+add_executable(mini_test ${SOURCES})
 
-# Create executable
-add_executable(mini_test ${SOURCES} ${GENERATED_SOURCES})
-
-# Link with runtime library
-target_link_libraries(mini_test ${ZSERIO_RUNTIME_LIB})
+# Link with generated code and runtime
+target_link_libraries(mini_test PRIVATE minizs)
 
 # Enable warnings
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -47,3 +18,8 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 elseif(MSVC)
     target_compile_options(mini_test PRIVATE /W4 /WX)
 endif()
+
+# Set runtime path for installed binary
+set_target_properties(mini_test PROPERTIES
+    INSTALL_RPATH_USE_LINK_PATH TRUE
+)

@@ -1,0 +1,37 @@
+# Config file for the ZserioCpp11Safe package
+# It defines the following variables:
+#  ZserioCpp11Safe_INCLUDE_DIRS - include directories for ZserioCpp11Safe
+#  ZserioCpp11Safe_LIBRARIES    - libraries to link against
+#  ZserioCpp11Safe_FOUND        - true if ZserioCpp11Safe has been found
+
+@PACKAGE_INIT@
+
+# Find the runtime library
+find_library(ZserioCpp11Safe_LIBRARY
+    NAMES ZserioCppRuntime
+    PATHS "@CMAKE_INSTALL_PREFIX@/lib"
+    NO_DEFAULT_PATH
+)
+
+# Find the extension JAR if installed
+find_file(ZserioCpp11Safe_EXTENSION_JAR
+    NAMES zserio_cpp.jar
+    PATHS "@CMAKE_INSTALL_PREFIX@/lib/zserio"
+    NO_DEFAULT_PATH
+)
+
+# Set include directories
+set(ZserioCpp11Safe_INCLUDE_DIRS "@CMAKE_INSTALL_PREFIX@/include")
+
+# Set libraries
+set(ZserioCpp11Safe_LIBRARIES ${ZserioCpp11Safe_LIBRARY})
+
+# Include the CMake modules
+set(ZserioCpp11Safe_CMAKE_DIR "@CMAKE_INSTALL_PREFIX@/lib/cmake/ZserioCpp11Safe")
+include("${ZserioCpp11Safe_CMAKE_DIR}/ZserioGenerator.cmake")
+
+# Check if everything was found
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(ZserioCpp11Safe
+    REQUIRED_VARS ZserioCpp11Safe_LIBRARY ZserioCpp11Safe_INCLUDE_DIRS
+)

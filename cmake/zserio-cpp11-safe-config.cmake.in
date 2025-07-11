@@ -1,0 +1,21 @@
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/zserio-cpp11-safe-targets.cmake")
+
+# Find required dependencies
+include(CMakeFindDependencyMacro)
+
+# Include the generator module
+include("${CMAKE_CURRENT_LIST_DIR}/ZserioGenerator.cmake")
+
+# Export useful variables
+set(ZSERIO_CPP11SAFE_VERSION @PROJECT_VERSION@)
+set(ZSERIO_CPP11SAFE_RUNTIME_LIBRARY zserio::ZserioCppRuntime)
+
+# Path to extension JAR (if installed)
+set(ZSERIO_CPP11SAFE_EXTENSION_JAR "@CMAKE_INSTALL_PREFIX@/share/zserio-cpp11-safe/zserio_cpp.jar")
+if(NOT EXISTS "${ZSERIO_CPP11SAFE_EXTENSION_JAR}")
+    set(ZSERIO_CPP11SAFE_EXTENSION_JAR "")
+endif()
+
+check_required_components(zserio-cpp11-safe)
