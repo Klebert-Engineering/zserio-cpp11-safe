@@ -57,7 +57,7 @@ function(build_zserio_extension)
         CONFIGURE_COMMAND ""
         BUILD_COMMAND ${ANT_EXECUTABLE}
             -f "${EXTENSION_SOURCE_DIR}/build.xml"
-            -Dzserio_core.jar_file="${ZSERIO_CORE_JAR}"
+            -Dzserio_core.jar_file=${ZSERIO_CORE_JAR}
             jar_without_javadocs
         BUILD_IN_SOURCE TRUE
         INSTALL_COMMAND ""
