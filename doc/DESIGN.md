@@ -346,15 +346,76 @@ This explicit approach ensures:
 
 ## Phase 3: Runtime Library Conversion
 
-### Core Runtime Classes
+### Overview
 
-With unsafe features now separated, we can focus on converting the remaining runtime classes to use Result<T> pattern:
+The runtime library conversion phase systematically transforms all core runtime
+components to use the Result<T> pattern for exception-free error handling. This
+phase builds upon the infrastructure established in Phase 2 and focuses on the
+safe subset of runtime functionality identified in Phase 1.
+
+### Key Design Decisions
+
+#### Single API Approach - No Dual Support
+
+The safe runtime provides **only** Result<T>-based APIs, with no exception-throwing variants. This critical decision:
+- Eliminates code duplication and conditional compilation complexity
+- Reduces verification burden for safety certification
+- Ensures predictable behavior in all configurations
+- Forces explicit error handling throughout the codebase
+
+#### Factory Pattern for Object Construction
+
+Since C++ constructors cannot return error codes, we adopt a factory pattern
+for objects that may fail during construction. This pattern, proven in the POC,
+ensures all errors are explicitly handled:
+
+```cpp
+// Pattern for generated structures
+class MyStruct {
+public:
+    // Simple constructor - no validation, cannot fail
+    explicit MyStruct(const allocator_type& allocator = allocator_type()) noexcept;
+    
+    // Factory method for deserialization that can fail
+    static Result<MyStruct> deserialize(
+        BitStreamReader& reader, 
+        const allocator_type& allocator = allocator_type()) noexcept;
+    
+    // Instance methods that can fail
+    Result<void> initializeChildren() noexcept;
+    Result<void> write(BitStreamWriter& writer) const noexcept;
+};
+```
+
+#### Explicit Error Propagation
+
+For functional safety compliance, we explicitly handle all error propagation without macros:
+
+```cpp
+// Clear, traceable error handling
+auto bitsResult = reader.readBits(8);
+if (bitsResult.isError()) {
+    return Result<MyStruct>::error(bitsResult.getError());
+}
+uint8_t value = bitsResult.getValue();
+```
+
+### Core Runtime Classes Conversion
+
+#### BitStreamReader
+
+The BitStreamReader is the foundation of deserialization and must be converted first:
 
 ```cpp
 class BitStreamReader {
 public:
-    // Constructor noexcept even with validation
+    // Constructor remains simple - validation deferred
     BitStreamReader(const uint8_t* buffer, size_t size) noexcept;
+    
+    // Factory method for construction with validation
+    static Result<BitStreamReader> create(
+        const uint8_t* buffer, 
+        size_t bufferBitSize) noexcept;
 
     // All read operations return Result<T> and are noexcept
     Result<uint32_t> readBits(uint8_t numBits) noexcept;
@@ -362,36 +423,251 @@ public:
     Result<uint64_t> readBits64(uint8_t numBits) noexcept;
     Result<int64_t> readSignedBits64(uint8_t numBits) noexcept;
 
-    // State queries always noexcept
-    size_t getBitPosition() const noexcept;
-    size_t getBufferBitSize() const noexcept;
-
-    // Compound type readers
-    Result<float> readFloat16() noexcept;
-    Result<float> readFloat32() noexcept;
-    Result<double> readFloat64() noexcept;
-
+    // Variable-length encodings
     Result<uint64_t> readVarUInt() noexcept;
     Result<int64_t> readVarInt() noexcept;
     Result<uint32_t> readVarSize() noexcept;
-};
+    
+    // Floating-point types
+    Result<float> readFloat16() noexcept;
+    Result<float> readFloat32() noexcept;
+    Result<double> readFloat64() noexcept;
+    
+    // Complex types with allocator support
+    template <typename ALLOC = std::allocator<uint8_t>>
+    Result<vector<uint8_t, ALLOC>> readBytes(const ALLOC& alloc = ALLOC()) noexcept;
+    
+    template <typename ALLOC = std::allocator<char>>
+    Result<string<ALLOC>> readString(const ALLOC& alloc = ALLOC()) noexcept;
 
+    // State queries always noexcept
+    size_t getBitPosition() const noexcept;
+    size_t getBufferBitSize() const noexcept;
+    Result<void> setBitPosition(size_t position) noexcept;
+};
+```
+
+#### BitStreamWriter
+
+The BitStreamWriter handles serialization with explicit error handling:
+
+```cpp
 class BitStreamWriter {
 public:
     // Pre-allocated buffer passed in
     BitStreamWriter(uint8_t* buffer, size_t size) noexcept;
+    
+    // Factory method with validation
+    static Result<BitStreamWriter> create(
+        uint8_t* buffer, 
+        size_t bufferBitSize) noexcept;
 
-    // All write operations noexcept
+    // All write operations return Result<void>
     Result<void> writeBits(uint32_t value, uint8_t numBits) noexcept;
     Result<void> writeBits64(uint64_t value, uint8_t numBits) noexcept;
-    Result<void> writeVarInt32(int32_t value) noexcept;
-    Result<void> writeVarUInt64(uint64_t value) noexcept;
+    Result<void> writeSignedBits(int32_t value, uint8_t numBits) noexcept;
+    Result<void> writeSignedBits64(int64_t value, uint8_t numBits) noexcept;
+    
+    // Variable-length encodings
+    Result<void> writeVarUInt(uint64_t value) noexcept;
+    Result<void> writeVarInt(int64_t value) noexcept;
+    Result<void> writeVarSize(uint32_t value) noexcept;
+    
+    // Complex types
+    template <typename ALLOC>
+    Result<void> writeBytes(const vector<uint8_t, ALLOC>& data) noexcept;
+    
+    template <typename ALLOC>
+    Result<void> writeString(const string<ALLOC>& str) noexcept;
 
-    // State queries always noexcept
+    // State management
     size_t getBitPosition() const noexcept;
     size_t getBufferBitSize() const noexcept;
 };
 ```
+
+### Container and Type Support Classes
+
+#### BitBuffer with Factory Pattern
+
+```cpp
+class BitBuffer {
+public:
+    // Simple constructor for empty buffer
+    explicit BitBuffer(const ALLOC& allocator = ALLOC()) noexcept;
+    
+    // Factory methods for construction that can fail
+    static Result<BitBuffer> create(
+        size_t bitSize, 
+        const ALLOC& allocator = ALLOC()) noexcept;
+    
+    static Result<BitBuffer> fromReader(
+        BitStreamReader& reader,
+        size_t bitSize,
+        const ALLOC& allocator = ALLOC()) noexcept;
+    
+    // Safe operations
+    Result<void> resize(size_t newBitSize) noexcept;
+    Result<uint8_t> getByteAt(size_t byteIndex) const noexcept;
+};
+```
+
+#### Critical Container Limitation
+
+**TODO: Custom Container Implementation Required**
+
+When building with `-fno-exceptions`, STL containers have implementation-defined behavior on allocation failure or bounds violations. Most implementations call `std::abort()`, which is unacceptable for functional safety.
+
+```cpp
+// CRITICAL TODO: STL containers may abort when exceptions are disabled
+class Array {
+    vector<T, ALLOC> m_data;  // TODO: Will abort on allocation failure!
+    
+public:
+    Result<void> read(BitStreamReader& reader, size_t size) noexcept {
+        // TODO: This reserve() may abort if allocation fails
+        // Future phases MUST provide custom containers
+        m_data.reserve(size);  // DANGER: May call std::abort()!
+        
+        for (size_t i = 0; i < size; ++i) {
+            auto result = T::deserialize(reader);
+            if (result.isError()) {
+                return Result<void>::error(result.getError());
+            }
+            // TODO: push_back may also abort on allocation failure
+            m_data.push_back(result.moveValue());
+        }
+        return Result<void>::success();
+    }
+};
+```
+
+This limitation is acknowledged but deferred to future phases because:
+1. Phase 3 focuses on establishing the Result<T> pattern
+2. Custom containers require significant design effort
+3. Pre-allocated memory pools can mitigate the risk temporarily
+4. Full solution requires the pluggable container system described in Phase 5
+
+### Build System Integration
+
+#### CMake Configuration
+
+```cmake
+# Runtime library configuration
+# The safe runtime ALWAYS builds without exceptions
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-exceptions")
+
+# Optional unsafe extensions (from Phase 1)
+option(ZSERIO_CPP11_UNSAFE
+       "UNSAFE: Enable development-only extensions - NEVER USE IN PRODUCTION!" OFF)
+
+if(ZSERIO_CPP11_UNSAFE)
+    # Only unsafe extensions can use exceptions
+    # Safe runtime remains exception-free
+    message(WARNING "Unsafe extensions enabled - NOT FOR SAFETY-CRITICAL USE!")
+endif()
+```
+
+#### No Dual API - Safe Code is Always Exception-Free
+
+The safe runtime components use Result<T> exclusively. This design decision:
+- Simplifies implementation and verification
+- Reduces code paths to test
+- Makes safety certification easier
+- Ensures consistent behavior regardless of build configuration
+
+```cpp
+class BitStreamReader {
+public:
+    // Only Result-based API - no exceptions ever
+    Result<uint32_t> readBits(uint8_t numBits) noexcept;
+    Result<int32_t> readSignedBits(uint8_t numBits) noexcept;
+    
+    // No throwing variants - keeps implementation clean
+};
+```
+
+### Implementation Order
+
+The conversion follows a careful dependency order to minimize disruption:
+
+1. **Core Infrastructure**
+   - Result<T> and ErrorCode (from Phase 2)
+   - Build system configuration
+   - Test infrastructure updates
+
+2. **BitStream Foundation**
+   - BitStreamReader conversion
+   - BitStreamWriter conversion
+   - Comprehensive error propagation tests
+
+3. **Type Support Classes**
+   - BitFieldUtil (bounds checking)
+   - BitSizeOfCalculator (overflow prevention)
+   - FloatUtil (NaN/Inf handling)
+   - SizeConvertUtil (safe conversions)
+
+4. **Container Classes**
+   - BitBuffer with factory methods
+   - Array/Vector safety wrappers
+   - String handling with bounds
+   - Span safety improvements
+
+5. **Complex Types**
+   - OptionalHolder (access validation)
+   - UniquePtr (allocation handling)
+   - Variant type safety
+
+### Testing Strategy
+
+Each converted component requires comprehensive testing:
+
+1. **Unit Tests**
+   - Convert existing tests to Result<T> API
+   - Add error path coverage
+   - Verify noexcept compliance
+
+2. **Integration Tests**
+   - End-to-end serialization/deserialization
+   - Error propagation chains
+   - Memory allocation failure scenarios
+
+3. **Performance Tests**
+   - Benchmark Result<T> overhead
+   - Compare with exception-based code
+   - Optimize critical paths
+
+### Migration Strategy
+
+Since there is no dual API support, migration requires a clean break:
+
+1. **Clear Separation**
+   - Safe runtime uses Result<T> exclusively
+   - No backward compatibility with exception-based code
+   - Users must choose: safe or unsafe variant
+
+2. **Documentation**
+   - Migration guide showing before/after examples
+   - Error handling patterns cookbook
+   - Memory pool sizing guidelines
+
+3. **Tooling Support**
+   - Static analysis to find exception usage
+   - Code generation updates for Result<T> pattern
+   - Build configuration validation
+
+### Exception Class Relocation
+
+As part of Phase 3, all exception classes move to the `unsafe/` directory:
+- Safe runtime no longer uses any exceptions after Result<T> conversion
+- Only unsafe features (JSON, reflection) need CppRuntimeException
+- Moving exceptions to `unsafe/` clarifies the architectural boundary
+- Include paths in unsafe features updated to `#include "zserio/unsafe/CppRuntimeException.h"`
+
+This relocation happens after the safe runtime conversion is complete, ensuring:
+- Clear separation between safe and unsafe code
+- No accidental exception usage in safe code (would fail to compile)
+- Explicit acknowledgment when using exception-based features
 
 ### Noexcept Specification Strategy
 
@@ -399,6 +675,7 @@ public:
 2. **State Queries**: Always noexcept
 3. **Constructors**: noexcept when possible, documented when not
 4. **Generated Code**: Proper noexcept specifications based on member types
+5. **Template Functions**: Conditional noexcept based on template parameters
 
 ## Phase 3: Unsafe Extensions Management
 
@@ -423,7 +700,7 @@ runtime/src/zserio/
     └── ...
 ```
 
-> **Implementation Note**: In Phase 1, we will NOT move the exception classes (CppRuntimeException and related) to the unsafe directory yet. They will remain in their current location because the unsafe features still depend on them. After Phase 2 is complete and we have the Result<T> pattern in place, the exception classes should then be relocated to the unsafe subdirectory as they will only be needed by unsafe code.
+> **Implementation Note**: Exception classes (CppRuntimeException and related) remain in their current location during Phases 1 and 2. They will be relocated to the unsafe/ directory as part of Phase 3, after the safe runtime conversion is complete. At that point, only unsafe features will use exceptions, making the architectural boundary crystal clear.
 
 ### Build Configuration
 
