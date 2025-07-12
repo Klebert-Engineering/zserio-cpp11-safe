@@ -7,7 +7,9 @@
 #include <string>
 
 #include "zserio/BitBuffer.h"
+#include "zserio/ErrorCode.h"
 #include "zserio/RebindAlloc.h"
+#include "zserio/Result.h"
 #include "zserio/Span.h"
 #include "zserio/String.h"
 #include "zserio/Types.h"
@@ -116,150 +118,167 @@ public:
      *
      * \param numBits Number of bits to read.
      *
-     * \return Read bits.
+     * \return Result with read bits or error code.
      */
-    uint32_t readBits(uint8_t numBits = 32);
+    Result<uint32_t> readBits(uint8_t numBits = 32) noexcept;
 
     /**
      * Reads unsigned bits up to 64-bits.
      *
      * \param numBits Number of bits to read.
      *
-     * \return Read bits.
+     * \return Result with read bits or error code.
      */
-    uint64_t readBits64(uint8_t numBits = 64);
+    Result<uint64_t> readBits64(uint8_t numBits = 64) noexcept;
 
     /**
      * Reads signed bits up to 32-bits.
      *
      * \param numBits Number of bits to read.
      *
-     * \return Read bits.
+     * \return Result with read bits or error code.
      */
-    int32_t readSignedBits(uint8_t numBits = 32);
+    Result<int32_t> readSignedBits(uint8_t numBits = 32) noexcept;
 
     /**
      * Reads signed bits up to 64-bits.
      *
      * \param numBits Number of bits to read.
      *
-     * \return Read bits.
+     * \return Result with read bits or error code.
      */
-    int64_t readSignedBits64(uint8_t numBits = 64);
+    Result<int64_t> readSignedBits64(uint8_t numBits = 64) noexcept;
 
     /**
      * Reads signed variable integer up to 64 bits.
      *
-     * \return Read varint64.
+     * \return Result with read varint64 or error code.
      */
-    int64_t readVarInt64();
+    Result<int64_t> readVarInt64() noexcept;
 
     /**
      * Reads signed variable integer up to 32 bits.
      *
-     * \return Read varint32.
+     * \return Result with read varint32 or error code.
      */
-    int32_t readVarInt32();
+    Result<int32_t> readVarInt32() noexcept;
 
     /**
      * Reads signed variable integer up to 16 bits.
      *
-     * \return Read varint16.
+     * \return Result with read varint16 or error code.
      */
-    int16_t readVarInt16();
+    Result<int16_t> readVarInt16() noexcept;
 
     /**
      * Read unsigned variable integer up to 64 bits.
      *
-     * \return Read varuint64.
+     * \return Result with read varuint64 or error code.
      */
-    uint64_t readVarUInt64();
+    Result<uint64_t> readVarUInt64() noexcept;
 
     /**
      * Read unsigned variable integer up to 32 bits.
      *
-     * \return Read varuint32.
+     * \return Result with read varuint32 or error code.
      */
-    uint32_t readVarUInt32();
+    Result<uint32_t> readVarUInt32() noexcept;
 
     /**
      * Read unsigned variable integer up to 16 bits.
      *
-     * \return Read varuint16.
+     * \return Result with read varuint16 or error code.
      */
-    uint16_t readVarUInt16();
+    Result<uint16_t> readVarUInt16() noexcept;
 
     /**
      * Reads signed variable integer up to 72 bits.
      *
-     * \return Read varint.
+     * \return Result with read varint or error code.
      */
-    int64_t readVarInt();
+    Result<int64_t> readVarInt() noexcept;
 
     /**
      * Read unsigned variable integer up to 72 bits.
      *
-     * \return Read varuint.
+     * \return Result with read varuint or error code.
      */
-    uint64_t readVarUInt();
+    Result<uint64_t> readVarUInt() noexcept;
 
     /**
      * Read variable size integer up to 40 bits.
      *
-     * \return Read varsize.
+     * \return Result with read varsize or error code.
      */
-    uint32_t readVarSize();
+    Result<uint32_t> readVarSize() noexcept;
 
     /**
      * Reads 16-bit float.
      *
-     * \return Read float16.
+     * \return Result with read float16 or error code.
      */
-    float readFloat16();
+    Result<float> readFloat16() noexcept;
 
     /**
      * Reads 32-bit float.
      *
-     * \return Read float32.
+     * \return Result with read float32 or error code.
      */
-    float readFloat32();
+    Result<float> readFloat32() noexcept;
 
     /**
      * Reads 64-bit float double.
      *
-     * \return Read float64.
+     * \return Result with read float64 or error code.
      */
-    double readFloat64();
+    Result<double> readFloat64() noexcept;
 
     /**
      * Reads bytes.
      *
      * \param alloc Allocator to use.
      *
-     * \return Read bytes as a vector.
+     * \return Result with read bytes as a vector or error code.
      */
     template <typename ALLOC = std::allocator<uint8_t>>
-    vector<uint8_t, ALLOC> readBytes(const ALLOC& alloc = ALLOC())
+    Result<vector<uint8_t, ALLOC>> readBytes(const ALLOC& alloc = ALLOC()) noexcept
     {
-        const size_t len = static_cast<size_t>(readVarSize());
+        auto lenResult = readVarSize();
+        if (lenResult.isError())
+        {
+            return Result<vector<uint8_t, ALLOC>>::error(lenResult.getError());
+        }
+        const size_t len = static_cast<size_t>(lenResult.getValue());
+        
         const BitPosType beginBitPosition = getBitPosition();
         if ((beginBitPosition & 0x07U) != 0)
         {
             // we are not aligned to byte
             vector<uint8_t, ALLOC> value{alloc};
+            // TODO: This reserve() may abort if allocation fails with -fno-exceptions!
             value.reserve(len);
             for (size_t i = 0; i < len; ++i)
             {
-                value.push_back(readByte());
+                auto byteResult = readByte();
+                if (byteResult.isError())
+                {
+                    return Result<vector<uint8_t, ALLOC>>::error(byteResult.getError());
+                }
+                value.push_back(byteResult.getValue());
             }
-            return value;
+            return Result<vector<uint8_t, ALLOC>>::success(std::move(value));
         }
         else
         {
             // we are aligned to byte
-            setBitPosition(beginBitPosition + len * 8);
+            auto setPosResult = setBitPosition(beginBitPosition + len * 8);
+            if (setPosResult.isError())
+            {
+                return Result<vector<uint8_t, ALLOC>>::error(setPosResult.getError());
+            }
             Span<const uint8_t>::iterator beginIt = m_context.buffer.begin() + beginBitPosition / 8;
-            return vector<uint8_t, ALLOC>(beginIt, beginIt + len, alloc);
+            return Result<vector<uint8_t, ALLOC>>::success(
+                vector<uint8_t, ALLOC>(beginIt, beginIt + len, alloc));
         }
     }
 
@@ -268,56 +287,79 @@ public:
      *
      * \param alloc Allocator to use.
      *
-     * \return Read string.
+     * \return Result with read string or error code.
      */
     template <typename ALLOC = std::allocator<char>>
-    string<ALLOC> readString(const ALLOC& alloc = ALLOC())
+    Result<string<ALLOC>> readString(const ALLOC& alloc = ALLOC()) noexcept
     {
-        const size_t len = static_cast<size_t>(readVarSize());
+        auto lenResult = readVarSize();
+        if (lenResult.isError())
+        {
+            return Result<string<ALLOC>>::error(lenResult.getError());
+        }
+        const size_t len = static_cast<size_t>(lenResult.getValue());
+        
         const BitPosType beginBitPosition = getBitPosition();
         if ((beginBitPosition & 0x07U) != 0)
         {
             // we are not aligned to byte
             string<ALLOC> value{alloc};
+            // TODO: This reserve() may abort if allocation fails with -fno-exceptions!
             value.reserve(len);
             for (size_t i = 0; i < len; ++i)
             {
                 using char_traits = std::char_traits<char>;
+                auto byteResult = readByte();
+                if (byteResult.isError())
+                {
+                    return Result<string<ALLOC>>::error(byteResult.getError());
+                }
                 const char readCharacter =
-                        char_traits::to_char_type(static_cast<char_traits::int_type>(readByte()));
+                        char_traits::to_char_type(static_cast<char_traits::int_type>(byteResult.getValue()));
                 value.push_back(readCharacter);
             }
-            return value;
+            return Result<string<ALLOC>>::success(std::move(value));
         }
         else
         {
             // we are aligned to byte
-            setBitPosition(beginBitPosition + len * 8);
+            auto setPosResult = setBitPosition(beginBitPosition + len * 8);
+            if (setPosResult.isError())
+            {
+                return Result<string<ALLOC>>::error(setPosResult.getError());
+            }
             Span<const uint8_t>::iterator beginIt = m_context.buffer.begin() + beginBitPosition / 8;
-            return string<ALLOC>(beginIt, beginIt + len, alloc);
+            return Result<string<ALLOC>>::success(string<ALLOC>(beginIt, beginIt + len, alloc));
         }
     }
 
     /**
      * Reads bool as a single bit.
      *
-     * \return Read bool value.
+     * \return Result with read bool value or error code.
      */
-    bool readBool();
+    Result<bool> readBool() noexcept;
 
     /**
      * Reads a bit buffer.
      *
      * \param alloc Allocator to use.
      *
-     * \return Read bit buffer.
+     * \return Result with read bit buffer or error code.
      */
     template <typename ALLOC = std::allocator<uint8_t>>
-    BasicBitBuffer<RebindAlloc<ALLOC, uint8_t>> readBitBuffer(const ALLOC& allocator = ALLOC())
+    Result<BasicBitBuffer<RebindAlloc<ALLOC, uint8_t>>> readBitBuffer(const ALLOC& allocator = ALLOC()) noexcept
     {
-        const size_t bitSize = static_cast<size_t>(readVarSize());
+        auto sizeResult = readVarSize();
+        if (sizeResult.isError())
+        {
+            return Result<BasicBitBuffer<RebindAlloc<ALLOC, uint8_t>>>::error(sizeResult.getError());
+        }
+        const size_t bitSize = static_cast<size_t>(sizeResult.getValue());
         const size_t numBytesToRead = bitSize / 8;
         const uint8_t numRestBits = static_cast<uint8_t>(bitSize - numBytesToRead * 8);
+        
+        // TODO: BitBuffer constructor may abort if allocation fails with -fno-exceptions!
         BasicBitBuffer<RebindAlloc<ALLOC, uint8_t>> bitBuffer(bitSize, allocator);
         Span<uint8_t> buffer = bitBuffer.getData();
         const BitPosType beginBitPosition = getBitPosition();
@@ -327,23 +369,37 @@ public:
             // we are not aligned to byte
             for (Span<uint8_t>::iterator it = buffer.begin(); it != itEnd; ++it)
             {
-                *it = static_cast<uint8_t>(readBits(8));
+                auto byteResult = readBits(8);
+                if (byteResult.isError())
+                {
+                    return Result<BasicBitBuffer<RebindAlloc<ALLOC, uint8_t>>>::error(byteResult.getError());
+                }
+                *it = static_cast<uint8_t>(byteResult.getValue());
             }
         }
         else
         {
             // we are aligned to byte
-            setBitPosition(beginBitPosition + numBytesToRead * 8);
+            auto setPosResult = setBitPosition(beginBitPosition + numBytesToRead * 8);
+            if (setPosResult.isError())
+            {
+                return Result<BasicBitBuffer<RebindAlloc<ALLOC, uint8_t>>>::error(setPosResult.getError());
+            }
             Span<const uint8_t>::const_iterator sourceIt = m_context.buffer.begin() + beginBitPosition / 8;
             (void)std::copy(sourceIt, sourceIt + numBytesToRead, buffer.begin());
         }
 
         if (numRestBits > 0)
         {
-            *itEnd = static_cast<uint8_t>(readBits(numRestBits) << (8U - numRestBits));
+            auto bitsResult = readBits(numRestBits);
+            if (bitsResult.isError())
+            {
+                return Result<BasicBitBuffer<RebindAlloc<ALLOC, uint8_t>>>::error(bitsResult.getError());
+            }
+            *itEnd = static_cast<uint8_t>(bitsResult.getValue() << (8U - numRestBits));
         }
 
-        return bitBuffer;
+        return Result<BasicBitBuffer<RebindAlloc<ALLOC, uint8_t>>>::success(std::move(bitBuffer));
     }
 
     /**
@@ -360,15 +416,19 @@ public:
      * Sets current bit position. Use with caution!
      *
      * \param position New bit position.
+     *
+     * \return Result indicating success or error code.
      */
-    void setBitPosition(BitPosType position);
+    Result<void> setBitPosition(BitPosType position) noexcept;
 
     /**
      * Moves current bit position to perform the requested bit alignment.
      *
      * \param alignment Size of the alignment in bits.
+     *
+     * \return Result indicating success or error code.
      */
-    void alignTo(size_t alignment);
+    Result<void> alignTo(size_t alignment) noexcept;
 
     /**
      * Gets size of the underlying buffer in bits.
@@ -381,7 +441,7 @@ public:
     }
 
 private:
-    uint8_t readByte();
+    Result<uint8_t> readByte() noexcept;
 
     ReaderContext m_context;
 };

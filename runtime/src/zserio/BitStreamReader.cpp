@@ -2,7 +2,6 @@
 #include <limits>
 
 #include "zserio/BitStreamReader.h"
-#include "zserio/CppRuntimeException.h"
 #include "zserio/FloatUtil.h"
 #include "zserio/RuntimeArch.h"
 
@@ -197,36 +196,8 @@ inline BaseType parse8(Span<const uint8_t>::const_iterator bufferIt)
     return static_cast<BaseType>(*bufferIt);
 }
 
-/** Optimization which increases chances to inline checkNumBits and checkNumBits64. */
-inline void throwNumBitsIsNotValid(uint8_t numBits)
-{
-    throw CppRuntimeException("BitStreamReader: ReadBits #")
-            << numBits << " is not valid, reading from stream failed!";
-}
-
-/** Checks numBits validity for 32-bit reads. */
-inline void checkNumBits(uint8_t numBits)
-{
-    if (numBits == 0 || numBits > 32)
-    {
-        throwNumBitsIsNotValid(numBits);
-    }
-}
-
-/** Checks numBits validity for 64-bit reads. */
-inline void checkNumBits64(uint8_t numBits)
-{
-    if (numBits == 0 || numBits > 64)
-    {
-        throwNumBitsIsNotValid(numBits);
-    }
-}
-
-/** Optimization which increases chances to inline loadCacheNext. */
-inline void throwEof()
-{
-    throw CppRuntimeException("BitStreamReader: Reached eof(), reading from stream failed!");
-}
+// Note: Exception throwing functions removed - all validation is now done in public methods
+// that return Result<T>. The internal readBitsImpl is only called after validation.
 
 /** Loads next 32/64 bits to 32/64 bit-cache. */
 inline void loadCacheNext(ReaderContext& ctx, uint8_t numBits)
@@ -247,10 +218,9 @@ inline void loadCacheNext(ReaderContext& ctx, uint8_t numBits)
     }
     else
     {
-        if (ctx.bitIndex + numBits > ctx.bufferBitSize)
-        {
-            throwEof();
-        }
+        // This should never happen as we validate in public methods
+        // In debug builds, we could assert here
+        // assert(ctx.bitIndex + numBits <= ctx.bufferBitSize);
 
         ctx.cacheNumBits = static_cast<uint8_t>(ctx.bufferBitSize - ctx.bitIndex);
 
@@ -362,11 +332,7 @@ BitStreamReader::ReaderContext::ReaderContext(Span<const uint8_t> readBuffer, si
         cacheNumBits(0),
         bitIndex(0)
 {
-    if (buffer.size() > MAX_BUFFER_SIZE)
-    {
-        throw CppRuntimeException("BitStreamReader: Buffer size exceeded limit '")
-                << MAX_BUFFER_SIZE << "' bytes!";
-    }
+    // Validation moved to read methods to allow Result<T> error handling
 }
 
 BitStreamReader::BitStreamReader(const uint8_t* buffer, size_t bufferByteSize) :
@@ -380,50 +346,112 @@ BitStreamReader::BitStreamReader(Span<const uint8_t> buffer) :
 BitStreamReader::BitStreamReader(Span<const uint8_t> buffer, size_t bufferBitSize) :
         m_context(buffer, bufferBitSize)
 {
-    if (buffer.size() < (bufferBitSize + 7) / 8)
-    {
-        throw CppRuntimeException("BitStreamReader: Wrong buffer bit size ('")
-                << buffer.size() << "' < '" << (bufferBitSize + 7) / 8 << "')!";
-    }
+    // Validation moved to read methods to allow Result<T> error handling
 }
 
 BitStreamReader::BitStreamReader(const uint8_t* buffer, size_t bufferBitSize, BitsTag) :
         m_context(Span<const uint8_t>(buffer, (bufferBitSize + 7) / 8), bufferBitSize)
 {}
 
-uint32_t BitStreamReader::readBits(uint8_t numBits)
+Result<uint32_t> BitStreamReader::readBits(uint8_t numBits) noexcept
 {
-    checkNumBits(numBits);
+    // Validate buffer size
+    if (m_context.buffer.size() > MAX_BUFFER_SIZE)
+    {
+        return Result<uint32_t>::error(ErrorCode::BufferSizeExceeded);
+    }
+    
+    // Validate buffer bit size
+    if (m_context.buffer.size() < (m_context.bufferBitSize + 7) / 8)
+    {
+        return Result<uint32_t>::error(ErrorCode::WrongBufferBitSize);
+    }
+    
+    // Check num bits
+    if (numBits > 32)
+    {
+        return Result<uint32_t>::error(ErrorCode::InvalidNumBits);
+    }
 
-    return static_cast<uint32_t>(readBitsImpl(m_context, numBits));
+    // Check if we have enough bits to read
+    if (m_context.bitIndex + numBits > m_context.bufferBitSize)
+    {
+        return Result<uint32_t>::error(ErrorCode::EndOfStream);
+    }
+
+    return Result<uint32_t>::success(static_cast<uint32_t>(readBitsImpl(m_context, numBits)));
 }
 
-uint64_t BitStreamReader::readBits64(uint8_t numBits)
+Result<uint64_t> BitStreamReader::readBits64(uint8_t numBits) noexcept
 {
-    checkNumBits64(numBits);
+    // Validate buffer size
+    if (m_context.buffer.size() > MAX_BUFFER_SIZE)
+    {
+        return Result<uint64_t>::error(ErrorCode::BufferSizeExceeded);
+    }
+    
+    // Validate buffer bit size
+    if (m_context.buffer.size() < (m_context.bufferBitSize + 7) / 8)
+    {
+        return Result<uint64_t>::error(ErrorCode::WrongBufferBitSize);
+    }
+    
+    // Check num bits
+    if (numBits > 64)
+    {
+        return Result<uint64_t>::error(ErrorCode::InvalidNumBits);
+    }
+
+    // Check if we have enough bits to read
+    if (m_context.bitIndex + numBits > m_context.bufferBitSize)
+    {
+        return Result<uint64_t>::error(ErrorCode::EndOfStream);
+    }
 
 #ifdef ZSERIO_RUNTIME_64BIT
-    return readBitsImpl(m_context, numBits);
+    return Result<uint64_t>::success(readBitsImpl(m_context, numBits));
 #else
     if (numBits <= 32)
     {
-        return readBitsImpl(m_context, numBits);
+        return Result<uint64_t>::success(readBitsImpl(m_context, numBits));
     }
 
-    return readBits64Impl(m_context, numBits);
+    return Result<uint64_t>::success(readBits64Impl(m_context, numBits));
 #endif
 }
 
-int64_t BitStreamReader::readSignedBits64(uint8_t numBits)
+Result<int64_t> BitStreamReader::readSignedBits64(uint8_t numBits) noexcept
 {
-    checkNumBits64(numBits);
+    // Validate buffer size
+    if (m_context.buffer.size() > MAX_BUFFER_SIZE)
+    {
+        return Result<int64_t>::error(ErrorCode::BufferSizeExceeded);
+    }
+    
+    // Validate buffer bit size
+    if (m_context.buffer.size() < (m_context.bufferBitSize + 7) / 8)
+    {
+        return Result<int64_t>::error(ErrorCode::WrongBufferBitSize);
+    }
+    
+    // Check num bits
+    if (numBits > 64)
+    {
+        return Result<int64_t>::error(ErrorCode::InvalidNumBits);
+    }
+
+    // Check if we have enough bits to read
+    if (m_context.bitIndex + numBits > m_context.bufferBitSize)
+    {
+        return Result<int64_t>::error(ErrorCode::EndOfStream);
+    }
 
 #ifdef ZSERIO_RUNTIME_64BIT
-    return readSignedBitsImpl(m_context, numBits);
+    return Result<int64_t>::success(readSignedBitsImpl(m_context, numBits));
 #else
     if (numBits <= 32)
     {
-        return readSignedBitsImpl(m_context, numBits);
+        return Result<int64_t>::success(readSignedBitsImpl(m_context, numBits));
     }
 
     int64_t value = static_cast<int64_t>(readBits64Impl(m_context, numBits));
@@ -438,412 +466,858 @@ int64_t BitStreamReader::readSignedBits64(uint8_t numBits)
         value = static_cast<int64_t>(static_cast<uint64_t>(value) - (UINT64_C(1) << numBits));
     }
 
-    return value;
+    return Result<int64_t>::success(value);
 #endif
 }
 
-int32_t BitStreamReader::readSignedBits(uint8_t numBits)
+Result<int32_t> BitStreamReader::readSignedBits(uint8_t numBits) noexcept
 {
-    checkNumBits(numBits);
+    // Validate buffer size
+    if (m_context.buffer.size() > MAX_BUFFER_SIZE)
+    {
+        return Result<int32_t>::error(ErrorCode::BufferSizeExceeded);
+    }
+    
+    // Validate buffer bit size
+    if (m_context.buffer.size() < (m_context.bufferBitSize + 7) / 8)
+    {
+        return Result<int32_t>::error(ErrorCode::WrongBufferBitSize);
+    }
+    
+    // Check num bits
+    if (numBits > 32)
+    {
+        return Result<int32_t>::error(ErrorCode::InvalidNumBits);
+    }
 
-    return static_cast<int32_t>(readSignedBitsImpl(m_context, numBits));
+    // Check if we have enough bits to read
+    if (m_context.bitIndex + numBits > m_context.bufferBitSize)
+    {
+        return Result<int32_t>::error(ErrorCode::EndOfStream);
+    }
+
+    return Result<int32_t>::success(static_cast<int32_t>(readSignedBitsImpl(m_context, numBits)));
 }
 
-int64_t BitStreamReader::readVarInt64()
+Result<int64_t> BitStreamReader::readVarInt64() noexcept
 {
+    // First check buffer validations
+    if (m_context.buffer.size() > MAX_BUFFER_SIZE)
+    {
+        return Result<int64_t>::error(ErrorCode::BufferSizeExceeded);
+    }
+    
+    if (m_context.buffer.size() < (m_context.bufferBitSize + 7) / 8)
+    {
+        return Result<int64_t>::error(ErrorCode::WrongBufferBitSize);
+    }
+
+    // Check if we have at least one byte to read
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<int64_t>::error(ErrorCode::EndOfStream);
+    }
+
     uint8_t byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 1
     const bool sign = (byte & VARINT_SIGN_1) != 0;
     uint64_t result = byte & VARINT_BYTE_1;
     if ((byte & VARINT_HAS_NEXT_1) == 0)
     {
-        return sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result);
+        return Result<int64_t>::success(sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result));
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 2
+    // byte 2
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<int64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARINT_BYTE_N);
     if ((byte & VARINT_HAS_NEXT_N) == 0)
     {
-        return sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result);
+        return Result<int64_t>::success(sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result));
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 3
+    // byte 3
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<int64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = static_cast<uint64_t>(result) << 7U | static_cast<uint8_t>(byte & VARINT_BYTE_N);
     if ((byte & VARINT_HAS_NEXT_N) == 0)
     {
-        return sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result);
+        return Result<int64_t>::success(sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result));
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 4
+    // byte 4
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<int64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARINT_BYTE_N);
     if ((byte & VARINT_HAS_NEXT_N) == 0)
     {
-        return sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result);
+        return Result<int64_t>::success(sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result));
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 5
+    // byte 5
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<int64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARINT_BYTE_N);
     if ((byte & VARINT_HAS_NEXT_N) == 0)
     {
-        return sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result);
+        return Result<int64_t>::success(sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result));
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 6
+    // byte 6
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<int64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARINT_BYTE_N);
     if ((byte & VARINT_HAS_NEXT_N) == 0)
     {
-        return sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result);
+        return Result<int64_t>::success(sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result));
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 7
+    // byte 7
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<int64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARINT_BYTE_N);
     if ((byte & VARINT_HAS_NEXT_N) == 0)
     {
-        return sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result);
+        return Result<int64_t>::success(sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result));
     }
 
-    result = result << 8U | static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 8
-    return sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result);
+    // byte 8
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<int64_t>::error(ErrorCode::EndOfStream);
+    }
+    result = result << 8U | static_cast<uint8_t>(readBitsImpl(m_context, 8));
+    return Result<int64_t>::success(sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result));
 }
 
-int32_t BitStreamReader::readVarInt32()
+Result<int32_t> BitStreamReader::readVarInt32() noexcept
 {
+    // First check buffer validations
+    if (m_context.buffer.size() > MAX_BUFFER_SIZE)
+    {
+        return Result<int32_t>::error(ErrorCode::BufferSizeExceeded);
+    }
+    
+    if (m_context.buffer.size() < (m_context.bufferBitSize + 7) / 8)
+    {
+        return Result<int32_t>::error(ErrorCode::WrongBufferBitSize);
+    }
+
+    // Check if we have at least one byte to read
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<int32_t>::error(ErrorCode::EndOfStream);
+    }
+
     uint8_t byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 1
     const bool sign = (byte & VARINT_SIGN_1) != 0;
     uint32_t result = byte & VARINT_BYTE_1;
     if ((byte & VARINT_HAS_NEXT_1) == 0)
     {
-        return sign ? -static_cast<int32_t>(result) : static_cast<int32_t>(result);
+        return Result<int32_t>::success(sign ? -static_cast<int32_t>(result) : static_cast<int32_t>(result));
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 2
+    // byte 2
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<int32_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARINT_BYTE_N);
     if ((byte & VARINT_HAS_NEXT_N) == 0)
     {
-        return sign ? -static_cast<int32_t>(result) : static_cast<int32_t>(result);
+        return Result<int32_t>::success(sign ? -static_cast<int32_t>(result) : static_cast<int32_t>(result));
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 3
+    // byte 3
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<int32_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARINT_BYTE_N);
     if ((byte & VARINT_HAS_NEXT_N) == 0)
     {
-        return sign ? -static_cast<int32_t>(result) : static_cast<int32_t>(result);
+        return Result<int32_t>::success(sign ? -static_cast<int32_t>(result) : static_cast<int32_t>(result));
     }
 
-    result = result << 8U | static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 4
-    return sign ? -static_cast<int32_t>(result) : static_cast<int32_t>(result);
+    // byte 4
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<int32_t>::error(ErrorCode::EndOfStream);
+    }
+    result = result << 8U | static_cast<uint8_t>(readBitsImpl(m_context, 8));
+    return Result<int32_t>::success(sign ? -static_cast<int32_t>(result) : static_cast<int32_t>(result));
 }
 
-int16_t BitStreamReader::readVarInt16()
+Result<int16_t> BitStreamReader::readVarInt16() noexcept
 {
+    // First check buffer validations
+    if (m_context.buffer.size() > MAX_BUFFER_SIZE)
+    {
+        return Result<int16_t>::error(ErrorCode::BufferSizeExceeded);
+    }
+    
+    if (m_context.buffer.size() < (m_context.bufferBitSize + 7) / 8)
+    {
+        return Result<int16_t>::error(ErrorCode::WrongBufferBitSize);
+    }
+
+    // Check if we have at least one byte to read
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<int16_t>::error(ErrorCode::EndOfStream);
+    }
+
     uint8_t byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 1
     const bool sign = (byte & VARINT_SIGN_1) != 0;
     uint16_t result = byte & VARINT_BYTE_1;
     if ((byte & VARINT_HAS_NEXT_1) == 0)
     {
-        return sign ? static_cast<int16_t>(-result) : static_cast<int16_t>(result);
+        return Result<int16_t>::success(sign ? static_cast<int16_t>(-result) : static_cast<int16_t>(result));
     }
 
+    // byte 2
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<int16_t>::error(ErrorCode::EndOfStream);
+    }
     result = static_cast<uint16_t>(result << 8U);
-    result = static_cast<uint16_t>(result | readBitsImpl(m_context, 8)); // byte 2
-    return sign ? static_cast<int16_t>(-result) : static_cast<int16_t>(result);
+    result = static_cast<uint16_t>(result | readBitsImpl(m_context, 8));
+    return Result<int16_t>::success(sign ? static_cast<int16_t>(-result) : static_cast<int16_t>(result));
 }
 
-uint64_t BitStreamReader::readVarUInt64()
+Result<uint64_t> BitStreamReader::readVarUInt64() noexcept
 {
+    // First check buffer validations
+    if (m_context.buffer.size() > MAX_BUFFER_SIZE)
+    {
+        return Result<uint64_t>::error(ErrorCode::BufferSizeExceeded);
+    }
+    
+    if (m_context.buffer.size() < (m_context.bufferBitSize + 7) / 8)
+    {
+        return Result<uint64_t>::error(ErrorCode::WrongBufferBitSize);
+    }
+
+    // Check if we have at least one byte to read
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint64_t>::error(ErrorCode::EndOfStream);
+    }
+
     uint8_t byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 1
     uint64_t result = byte & VARUINT_BYTE;
     if ((byte & VARUINT_HAS_NEXT) == 0)
     {
-        return result;
+        return Result<uint64_t>::success(result);
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 2
+    // byte 2
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARUINT_BYTE);
     if ((byte & VARUINT_HAS_NEXT) == 0)
     {
-        return result;
+        return Result<uint64_t>::success(result);
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 3
+    // byte 3
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARUINT_BYTE);
     if ((byte & VARUINT_HAS_NEXT) == 0)
     {
-        return result;
+        return Result<uint64_t>::success(result);
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 4
+    // byte 4
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARUINT_BYTE);
     if ((byte & VARUINT_HAS_NEXT) == 0)
     {
-        return result;
+        return Result<uint64_t>::success(result);
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 5
+    // byte 5
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARUINT_BYTE);
     if ((byte & VARUINT_HAS_NEXT) == 0)
     {
-        return result;
+        return Result<uint64_t>::success(result);
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 6
+    // byte 6
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARUINT_BYTE);
     if ((byte & VARUINT_HAS_NEXT) == 0)
     {
-        return result;
+        return Result<uint64_t>::success(result);
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 7
+    // byte 7
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARUINT_BYTE);
     if ((byte & VARUINT_HAS_NEXT) == 0)
     {
-        return result;
+        return Result<uint64_t>::success(result);
     }
 
-    result = result << 8U | static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 8
-    return result;
+    // byte 8
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint64_t>::error(ErrorCode::EndOfStream);
+    }
+    result = result << 8U | static_cast<uint8_t>(readBitsImpl(m_context, 8));
+    return Result<uint64_t>::success(result);
 }
 
-uint32_t BitStreamReader::readVarUInt32()
+Result<uint32_t> BitStreamReader::readVarUInt32() noexcept
 {
+    // First check buffer validations
+    if (m_context.buffer.size() > MAX_BUFFER_SIZE)
+    {
+        return Result<uint32_t>::error(ErrorCode::BufferSizeExceeded);
+    }
+    
+    if (m_context.buffer.size() < (m_context.bufferBitSize + 7) / 8)
+    {
+        return Result<uint32_t>::error(ErrorCode::WrongBufferBitSize);
+    }
+
+    // Check if we have at least one byte to read
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint32_t>::error(ErrorCode::EndOfStream);
+    }
+
     uint8_t byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 1
     uint32_t result = byte & VARUINT_BYTE;
     if ((byte & VARUINT_HAS_NEXT) == 0)
     {
-        return result;
+        return Result<uint32_t>::success(result);
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 2
+    // byte 2
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint32_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARUINT_BYTE);
     if ((byte & VARUINT_HAS_NEXT) == 0)
     {
-        return result;
+        return Result<uint32_t>::success(result);
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 3
+    // byte 3
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint32_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARUINT_BYTE);
     if ((byte & VARUINT_HAS_NEXT) == 0)
     {
-        return result;
+        return Result<uint32_t>::success(result);
     }
 
-    result = result << 8U | static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 4
-    return result;
+    // byte 4
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint32_t>::error(ErrorCode::EndOfStream);
+    }
+    result = result << 8U | static_cast<uint8_t>(readBitsImpl(m_context, 8));
+    return Result<uint32_t>::success(result);
 }
 
-uint16_t BitStreamReader::readVarUInt16()
+Result<uint16_t> BitStreamReader::readVarUInt16() noexcept
 {
+    // First check buffer validations
+    if (m_context.buffer.size() > MAX_BUFFER_SIZE)
+    {
+        return Result<uint16_t>::error(ErrorCode::BufferSizeExceeded);
+    }
+    
+    if (m_context.buffer.size() < (m_context.bufferBitSize + 7) / 8)
+    {
+        return Result<uint16_t>::error(ErrorCode::WrongBufferBitSize);
+    }
+
+    // Check if we have at least one byte to read
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint16_t>::error(ErrorCode::EndOfStream);
+    }
+
     uint8_t byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 1
     uint16_t result = byte & VARUINT_BYTE;
     if ((byte & VARUINT_HAS_NEXT) == 0)
     {
-        return result;
+        return Result<uint16_t>::success(result);
     }
 
+    // byte 2
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint16_t>::error(ErrorCode::EndOfStream);
+    }
     result = static_cast<uint16_t>(result << 8U);
-    result = static_cast<uint16_t>(result | readBitsImpl(m_context, 8)); // byte 2
-    return result;
+    result = static_cast<uint16_t>(result | readBitsImpl(m_context, 8));
+    return Result<uint16_t>::success(result);
 }
 
-int64_t BitStreamReader::readVarInt()
+Result<int64_t> BitStreamReader::readVarInt() noexcept
 {
+    // First check buffer validations
+    if (m_context.buffer.size() > MAX_BUFFER_SIZE)
+    {
+        return Result<int64_t>::error(ErrorCode::BufferSizeExceeded);
+    }
+    
+    if (m_context.buffer.size() < (m_context.bufferBitSize + 7) / 8)
+    {
+        return Result<int64_t>::error(ErrorCode::WrongBufferBitSize);
+    }
+
+    // Check if we have at least one byte to read
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<int64_t>::error(ErrorCode::EndOfStream);
+    }
+
     uint8_t byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 1
     const bool sign = (byte & VARINT_SIGN_1) != 0;
     uint64_t result = byte & VARINT_BYTE_1;
     if ((byte & VARINT_HAS_NEXT_1) == 0)
     {
-        return sign ? (result == 0 ? INT64_MIN : -static_cast<int64_t>(result)) : static_cast<int64_t>(result);
+        return Result<int64_t>::success(
+            sign ? (result == 0 ? INT64_MIN : -static_cast<int64_t>(result)) : static_cast<int64_t>(result));
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 2
+    // byte 2
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<int64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARINT_BYTE_N);
     if ((byte & VARINT_HAS_NEXT_N) == 0)
     {
-        return sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result);
+        return Result<int64_t>::success(sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result));
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 3
+    // byte 3
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<int64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARINT_BYTE_N);
     if ((byte & VARINT_HAS_NEXT_N) == 0)
     {
-        return sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result);
+        return Result<int64_t>::success(sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result));
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 4
+    // byte 4
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<int64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARINT_BYTE_N);
     if ((byte & VARINT_HAS_NEXT_N) == 0)
     {
-        return sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result);
+        return Result<int64_t>::success(sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result));
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 5
+    // byte 5
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<int64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARINT_BYTE_N);
     if ((byte & VARINT_HAS_NEXT_N) == 0)
     {
-        return sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result);
+        return Result<int64_t>::success(sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result));
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 6
+    // byte 6
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<int64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARINT_BYTE_N);
     if ((byte & VARINT_HAS_NEXT_N) == 0)
     {
-        return sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result);
+        return Result<int64_t>::success(sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result));
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 7
+    // byte 7
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<int64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARINT_BYTE_N);
     if ((byte & VARINT_HAS_NEXT_N) == 0)
     {
-        return sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result);
+        return Result<int64_t>::success(sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result));
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 8
+    // byte 8
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<int64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARINT_BYTE_N);
     if ((byte & VARINT_HAS_NEXT_N) == 0)
     {
-        return sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result);
+        return Result<int64_t>::success(sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result));
     }
 
-    result = result << 8U | static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 9
-    return sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result);
+    // byte 9
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<int64_t>::error(ErrorCode::EndOfStream);
+    }
+    result = result << 8U | static_cast<uint8_t>(readBitsImpl(m_context, 8));
+    return Result<int64_t>::success(sign ? -static_cast<int64_t>(result) : static_cast<int64_t>(result));
 }
 
-uint64_t BitStreamReader::readVarUInt()
+Result<uint64_t> BitStreamReader::readVarUInt() noexcept
 {
+    // First check buffer validations
+    if (m_context.buffer.size() > MAX_BUFFER_SIZE)
+    {
+        return Result<uint64_t>::error(ErrorCode::BufferSizeExceeded);
+    }
+    
+    if (m_context.buffer.size() < (m_context.bufferBitSize + 7) / 8)
+    {
+        return Result<uint64_t>::error(ErrorCode::WrongBufferBitSize);
+    }
+
+    // Check if we have at least one byte to read
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint64_t>::error(ErrorCode::EndOfStream);
+    }
+
     uint8_t byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 1
     uint64_t result = byte & VARUINT_BYTE;
     if ((byte & VARUINT_HAS_NEXT) == 0)
     {
-        return result;
+        return Result<uint64_t>::success(result);
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 2
+    // byte 2
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARUINT_BYTE);
     if ((byte & VARUINT_HAS_NEXT) == 0)
     {
-        return result;
+        return Result<uint64_t>::success(result);
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 3
+    // byte 3
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARUINT_BYTE);
     if ((byte & VARUINT_HAS_NEXT) == 0)
     {
-        return result;
+        return Result<uint64_t>::success(result);
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 4
+    // byte 4
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARUINT_BYTE);
     if ((byte & VARUINT_HAS_NEXT) == 0)
     {
-        return result;
+        return Result<uint64_t>::success(result);
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 5
+    // byte 5
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARUINT_BYTE);
     if ((byte & VARUINT_HAS_NEXT) == 0)
     {
-        return result;
+        return Result<uint64_t>::success(result);
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 6
+    // byte 6
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARUINT_BYTE);
     if ((byte & VARUINT_HAS_NEXT) == 0)
     {
-        return result;
+        return Result<uint64_t>::success(result);
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 7
+    // byte 7
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARUINT_BYTE);
     if ((byte & VARUINT_HAS_NEXT) == 0)
     {
-        return result;
+        return Result<uint64_t>::success(result);
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 8
+    // byte 8
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint64_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARUINT_BYTE);
     if ((byte & VARUINT_HAS_NEXT) == 0)
     {
-        return result;
+        return Result<uint64_t>::success(result);
     }
 
-    result = result << 8U | static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 9
-    return result;
+    // byte 9
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint64_t>::error(ErrorCode::EndOfStream);
+    }
+    result = result << 8U | static_cast<uint8_t>(readBitsImpl(m_context, 8));
+    return Result<uint64_t>::success(result);
 }
 
-uint32_t BitStreamReader::readVarSize()
+Result<float> BitStreamReader::readFloat16() noexcept
 {
+    // First check buffer validations
+    if (m_context.buffer.size() > MAX_BUFFER_SIZE)
+    {
+        return Result<float>::error(ErrorCode::BufferSizeExceeded);
+    }
+    
+    if (m_context.buffer.size() < (m_context.bufferBitSize + 7) / 8)
+    {
+        return Result<float>::error(ErrorCode::WrongBufferBitSize);
+    }
+
+    // Check if we have 16 bits to read
+    if (m_context.bitIndex + 16 > m_context.bufferBitSize)
+    {
+        return Result<float>::error(ErrorCode::EndOfStream);
+    }
+
+    const uint16_t halfPrecisionFloatValue = static_cast<uint16_t>(readBitsImpl(m_context, 16));
+    return Result<float>::success(convertUInt16ToFloat(halfPrecisionFloatValue));
+}
+
+Result<float> BitStreamReader::readFloat32() noexcept
+{
+    // First check buffer validations
+    if (m_context.buffer.size() > MAX_BUFFER_SIZE)
+    {
+        return Result<float>::error(ErrorCode::BufferSizeExceeded);
+    }
+    
+    if (m_context.buffer.size() < (m_context.bufferBitSize + 7) / 8)
+    {
+        return Result<float>::error(ErrorCode::WrongBufferBitSize);
+    }
+
+    // Check if we have 32 bits to read
+    if (m_context.bitIndex + 32 > m_context.bufferBitSize)
+    {
+        return Result<float>::error(ErrorCode::EndOfStream);
+    }
+
+    const uint32_t singlePrecisionFloatValue = static_cast<uint32_t>(readBitsImpl(m_context, 32));
+    return Result<float>::success(convertUInt32ToFloat(singlePrecisionFloatValue));
+}
+
+Result<double> BitStreamReader::readFloat64() noexcept
+{
+    // First check buffer validations
+    if (m_context.buffer.size() > MAX_BUFFER_SIZE)
+    {
+        return Result<double>::error(ErrorCode::BufferSizeExceeded);
+    }
+    
+    if (m_context.buffer.size() < (m_context.bufferBitSize + 7) / 8)
+    {
+        return Result<double>::error(ErrorCode::WrongBufferBitSize);
+    }
+
+    // Check if we have 64 bits to read
+    if (m_context.bitIndex + 64 > m_context.bufferBitSize)
+    {
+        return Result<double>::error(ErrorCode::EndOfStream);
+    }
+
+    const uint64_t doublePrecisionFloatValue = readBitsImpl(m_context, 64);
+    return Result<double>::success(convertUInt64ToDouble(doublePrecisionFloatValue));
+}
+
+Result<uint32_t> BitStreamReader::readVarSize() noexcept
+{
+    // First check buffer validations
+    if (m_context.buffer.size() > MAX_BUFFER_SIZE)
+    {
+        return Result<uint32_t>::error(ErrorCode::BufferSizeExceeded);
+    }
+    
+    if (m_context.buffer.size() < (m_context.bufferBitSize + 7) / 8)
+    {
+        return Result<uint32_t>::error(ErrorCode::WrongBufferBitSize);
+    }
+
+    // Check if we have at least one byte to read
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint32_t>::error(ErrorCode::EndOfStream);
+    }
+
     uint8_t byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 1
     uint32_t result = byte & VARUINT_BYTE;
     if ((byte & VARUINT_HAS_NEXT) == 0)
     {
-        return result;
+        return Result<uint32_t>::success(result);
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 2
+    // byte 2
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint32_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARUINT_BYTE);
     if ((byte & VARUINT_HAS_NEXT) == 0)
     {
-        return result;
+        return Result<uint32_t>::success(result);
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 3
+    // byte 3
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint32_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARUINT_BYTE);
     if ((byte & VARUINT_HAS_NEXT) == 0)
     {
-        return result;
+        return Result<uint32_t>::success(result);
     }
 
-    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 4
+    // byte 4
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint32_t>::error(ErrorCode::EndOfStream);
+    }
+    byte = static_cast<uint8_t>(readBitsImpl(m_context, 8));
     result = result << 7U | static_cast<uint8_t>(byte & VARUINT_BYTE);
     if ((byte & VARUINT_HAS_NEXT) == 0)
     {
-        return result;
+        return Result<uint32_t>::success(result);
     }
 
-    result = result << 8U | static_cast<uint8_t>(readBitsImpl(m_context, 8)); // byte 5
+    // byte 5
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint32_t>::error(ErrorCode::EndOfStream);
+    }
+    result = result << 8U | static_cast<uint8_t>(readBitsImpl(m_context, 8));
     if (result > VARSIZE_MAX_VALUE)
     {
-        throw CppRuntimeException("BitStreamReader: Read value '")
-                << result << "' is out of range for varsize type!";
+        return Result<uint32_t>::error(ErrorCode::OutOfRange);
     }
 
-    return result;
+    return Result<uint32_t>::success(result);
 }
 
-float BitStreamReader::readFloat16()
+Result<bool> BitStreamReader::readBool() noexcept
 {
-    const uint16_t halfPrecisionFloatValue = static_cast<uint16_t>(readBitsImpl(m_context, 16));
+    // Check buffer validations
+    if (m_context.buffer.size() > MAX_BUFFER_SIZE)
+    {
+        return Result<bool>::error(ErrorCode::BufferSizeExceeded);
+    }
+    
+    if (m_context.buffer.size() < (m_context.bufferBitSize + 7) / 8)
+    {
+        return Result<bool>::error(ErrorCode::WrongBufferBitSize);
+    }
 
-    return convertUInt16ToFloat(halfPrecisionFloatValue);
+    // Check if we have at least one bit to read
+    if (m_context.bitIndex + 1 > m_context.bufferBitSize)
+    {
+        return Result<bool>::error(ErrorCode::EndOfStream);
+    }
+
+    return Result<bool>::success(readBitsImpl(m_context, 1) != 0);
 }
 
-float BitStreamReader::readFloat32()
-{
-    const uint32_t singlePrecisionFloatValue = static_cast<uint32_t>(readBitsImpl(m_context, 32));
-
-    return convertUInt32ToFloat(singlePrecisionFloatValue);
-}
-
-double BitStreamReader::readFloat64()
-{
-#ifdef ZSERIO_RUNTIME_64BIT
-    const uint64_t doublePrecisionFloatValue = static_cast<uint64_t>(readBitsImpl(m_context, 64));
-#else
-    const uint64_t doublePrecisionFloatValue = readBits64Impl(m_context, 64);
-#endif
-
-    return convertUInt64ToDouble(doublePrecisionFloatValue);
-}
-
-bool BitStreamReader::readBool()
-{
-    return readBitsImpl(m_context, 1) != 0;
-}
-
-void BitStreamReader::setBitPosition(BitPosType position)
+Result<void> BitStreamReader::setBitPosition(BitPosType position) noexcept
 {
     if (position > m_context.bufferBitSize)
     {
-        throw CppRuntimeException("BitStreamReader: Reached eof(), setting of bit position failed!");
+        return Result<void>::error(ErrorCode::InvalidBitPosition);
     }
 
     m_context.bitIndex = (position / 8) * 8; // set to byte aligned position
@@ -851,23 +1325,52 @@ void BitStreamReader::setBitPosition(BitPosType position)
     const uint8_t skip = static_cast<uint8_t>(position - m_context.bitIndex);
     if (skip != 0)
     {
-        (void)readBits(skip);
+        // Use readBitsImpl directly to avoid recursive Result handling
+        if (m_context.bitIndex + skip > m_context.bufferBitSize)
+        {
+            return Result<void>::error(ErrorCode::EndOfStream);
+        }
+        (void)readBitsImpl(m_context, skip);
     }
+    
+    return Result<void>::success();
 }
 
-void BitStreamReader::alignTo(size_t alignment)
+Result<void> BitStreamReader::alignTo(size_t alignment) noexcept
 {
     const BitPosType offset = getBitPosition() % alignment;
     if (offset != 0)
     {
         const uint8_t skip = static_cast<uint8_t>(alignment - offset);
-        (void)readBits64(skip);
+        // Use readBitsImpl directly to avoid recursive Result handling
+        if (m_context.bitIndex + skip > m_context.bufferBitSize)
+        {
+            return Result<void>::error(ErrorCode::EndOfStream);
+        }
+        
+        if (skip <= 64)
+        {
+            (void)readBitsImpl(m_context, skip);
+        }
+        else
+        {
+            // Should not happen with reasonable alignments
+            return Result<void>::error(ErrorCode::InvalidParameter);
+        }
     }
+    
+    return Result<void>::success();
 }
 
-uint8_t BitStreamReader::readByte()
+Result<uint8_t> BitStreamReader::readByte() noexcept
 {
-    return static_cast<uint8_t>(readBitsImpl(m_context, 8));
+    // Check if we have at least one byte to read
+    if (m_context.bitIndex + 8 > m_context.bufferBitSize)
+    {
+        return Result<uint8_t>::error(ErrorCode::EndOfStream);
+    }
+    
+    return Result<uint8_t>::success(static_cast<uint8_t>(readBitsImpl(m_context, 8)));
 }
 
 } // namespace zserio

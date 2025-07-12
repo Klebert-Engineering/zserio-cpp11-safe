@@ -78,14 +78,14 @@ public:
     ~BitStreamWriter() = default;
 
     /**
-     * Copying and moving is disallowed!
+     * Copying is disallowed, moving is allowed!
      * \{
      */
     BitStreamWriter(const BitStreamWriter&) = delete;
     BitStreamWriter& operator=(const BitStreamWriter&) = delete;
 
-    BitStreamWriter(const BitStreamWriter&&) = delete;
-    BitStreamWriter& operator=(BitStreamWriter&&) = delete;
+    BitStreamWriter(BitStreamWriter&&) = default;
+    BitStreamWriter& operator=(BitStreamWriter&&) = default;
     /**
      * \}
      */
