@@ -392,6 +392,8 @@ runtime/src/zserio/
     └── ...
 ```
 
+> **Implementation Note**: In Phase 1, we will NOT move the exception classes (CppRuntimeException and related) to the unsafe directory yet. They will remain in their current location because the unsafe features still depend on them. After Phase 2 is complete and we have the Result<T> pattern in place, the exception classes should then be relocated to the unsafe subdirectory as they will only be needed by unsafe code.
+
 ### Build Configuration
 
 ```cmake
