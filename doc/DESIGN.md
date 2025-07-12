@@ -27,6 +27,22 @@ The implementation follows a strategic phase ordering designed to maximize effic
 
 ## Phase 1: Result<T> Pattern Implementation
 
+### Design Choice: Result<T> vs std::expected
+
+We considered using a backport of `std::expected` (C++23) but decided to implement our own `Result<T>` pattern for the following reasons:
+
+1. **Simplicity**: Our `Result<T>` implementation is straightforward and minimal, containing only what we need for zserio error handling. This makes it easier to verify for functional safety certification.
+
+2. **Verification Burden**: A full `std::expected` implementation includes monadic operations (`.and_then()`, `.or_else()`, `.transform()`, etc.) which add complexity to safety verification. Many safety-critical projects avoid monadic chaining as it can obscure control flow.
+
+3. **No Additional Dependencies**: Using our own implementation avoids external dependencies or complex backports that would need separate certification.
+
+4. **Focused API**: Our `Result<T>` provides exactly the operations needed for zserio: `isSuccess()`, `isError()`, `getError()`, and `getValue()`. No more, no less.
+
+5. **Future Flexibility**: We can migrate to `std::expected` later if needed, once C++23 is widely adopted and if monadic operations prove valuable. The current API is a subset of `std::expected`, making migration straightforward.
+
+For now, **simplicity wins** - a minimal, verifiable implementation is more valuable than advanced features that add certification complexity.
+
 ### The Result<T> Pattern
 
 Based on the POC's proven approach, we will adopt a `Result<T>` pattern as the foundation for all error handling:
@@ -292,26 +308,41 @@ enum class ErrorCode : uint32_t {
 };
 ```
 
-### Error Propagation Macros
+### Error Propagation Strategy
 
-Convenience macros for error propagation:
+While error propagation macros could enhance code readability by reducing boilerplate, we have decided **against** using them for functional safety compliance. 
 
+**Considered but rejected approach:**
 ```cpp
+// REJECTED: Macros hide control flow
 #define PROPAGATE_ERROR(result) \
     do { \
         auto&& _r = (result); \
         if (_r.isError()) return Result<T>::error(_r.getError()); \
     } while(0)
-
-#define PROPAGATE_ERROR_WITH_CONTEXT(result, context) \
-    do { \
-        auto&& _r = (result); \
-        if (_r.isError()) { \
-            /* Context can be logged or stored */ \
-            return Result<T>::error(_r.getError()); \
-        } \
-    } while(0)
 ```
+
+**Reasons for rejection:**
+1. **Hidden Control Flow**: The `return` statement inside macros violates safety guidelines (e.g., MISRA C++ Rule 16-0-1). Safety standards require explicit, traceable control flow.
+2. **Static Analysis Limitations**: Certification tools often struggle with macro expansion, potentially missing critical checks or producing false positives.
+3. **Debugging Complexity**: Macros make it harder to trace execution paths during debugging and safety analysis.
+4. **Type Safety Concerns**: The macro needs to infer the return type `T`, which could lead to subtle errors.
+
+**Recommended approach for functional safety:**
+```cpp
+// Explicit and traceable error handling
+auto result = someOperation();
+if (result.isError()) {
+    return Result<ReturnType>::error(result.getError());
+}
+auto value = result.getValue();
+```
+
+This explicit approach ensures:
+- Clear control flow visible to static analyzers
+- Better traceability for safety certification
+- Easier debugging and code review
+- Type safety guaranteed by the compiler
 
 ## Phase 3: Runtime Library Conversion
 
