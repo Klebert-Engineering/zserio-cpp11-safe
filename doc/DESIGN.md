@@ -25,7 +25,159 @@ The implementation follows a strategic phase ordering designed to maximize effic
 
 5. **Phase 5: Memory Management Integration** - Implement defensive strategies for memory allocation failures and provide safety-aware memory resource patterns.
 
-## Phase 1: Result<T> Pattern Implementation
+## Phase 1: Unsafe Extensions Separation
+
+### Overview
+
+The first phase establishes a clear architectural boundary between functional safety ready code and development-only features. All inherently unsafe features are moved to a clearly marked `unsafe/` directory, making it obvious what remains for safety refactoring.
+
+### Unsafe Features Identification
+
+The following features are inherently unsafe for functional safety and must be separated:
+
+1. **JSON Support** - Dynamic allocation, unbounded operations, string parsing
+2. **Reflection/Introspection** - Runtime type information, dynamic behavior
+3. **Type Info** - RTTI-like features incompatible with safety standards
+4. **Walker/Visitor** - Dynamic traversal with unbounded recursion
+5. **Tree Creator** - Dynamic object construction
+6. **Debug Utilities** - Development-only debugging aids
+
+### Directory Structure
+
+After Phase 1, the runtime library has a clear separation:
+
+```
+runtime/src/zserio/
+├── BitStreamReader.h        # Core serialization (safe)
+├── BitStreamWriter.h        # Core serialization (safe)
+├── BitBuffer.h             # Core types (safe)
+├── CppRuntimeException.h   # Remains here during Phase 1-2
+├── ErrorCode.h             # For future Result<T> (safe)
+├── Result.h                # For future Result<T> (safe)
+├── ...                     # Other safe components
+└── unsafe/                 # NOT FOR PRODUCTION USE
+    ├── DebugStringUtil.h   # Debug utilities
+    ├── IReflectable.h      # Reflection interfaces
+    ├── ITypeInfo.h         # Type introspection
+    ├── IWalkFilter.h       # Walker interfaces
+    ├── IWalkObserver.h     
+    ├── JsonDecoder.h       # JSON support
+    ├── JsonEncoder.h       
+    ├── JsonParser.h        
+    ├── JsonReader.h        
+    ├── JsonTokenizer.h     
+    ├── JsonWriter.h        
+    ├── Reflectable.h       # Reflection implementation
+    ├── ReflectableUtil.h   
+    ├── TypeInfo.h          # Type info implementation
+    ├── TypeInfoUtil.h      
+    ├── Walker.h            # Object traversal
+    ├── WalkerConst.h       
+    ├── ZserioTreeCreator.h # Dynamic construction
+    └── pmr/                # PMR variants of unsafe features
+        ├── IReflectable.h
+        ├── ITypeInfo.h
+        └── Reflectable.h
+```
+
+> **Implementation Note**: Exception classes (CppRuntimeException and related) remain in their current location during Phases 1 and 2. They will be relocated to the unsafe/ directory as part of Phase 3, after the safe runtime conversion is complete. At that point, only unsafe features will use exceptions, making the architectural boundary crystal clear.
+
+### Build Configuration
+
+```cmake
+# CMakeLists.txt
+option(ZSERIO_CPP11_UNSAFE
+       "UNSAFE: Enable development-only extensions - NEVER USE IN PRODUCTION!" OFF)
+
+if(ZSERIO_CPP11_UNSAFE)
+    message(WARNING "")
+    message(WARNING "================================================")
+    message(WARNING "UNSAFE EXTENSIONS ENABLED - NOT FOR PRODUCTION!")
+    message(WARNING "This build includes non-functional-safety-ready code!")
+    message(WARNING "================================================")
+    message(WARNING "")
+
+    # Unsafe extensions CAN use exceptions
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
+
+    add_subdirectory(src/zserio/unsafe)
+    target_compile_definitions(ZserioCppRuntime
+        PUBLIC ZSERIO_CPP11_UNSAFE_MODE)
+else()
+    # Production mode: absolutely no exceptions
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-exceptions")
+endif()
+```
+
+### Code Generation Control
+
+```java
+// In code generator
+boolean unsafeMasterSwitch = commandLine.hasOption("-UNSAFE");
+
+if (commandLine.hasOption("-withTypeInfo")) {
+    if (!unsafeMasterSwitch) {
+        throw new Exception(
+            "ERROR: -withTypeInfo requires -UNSAFE flag.\n" +
+            "Type info is not functional safety ready. To acknowledge this risk,\n" +
+            "you must explicitly enable -UNSAFE mode.");
+    }
+    // Generate type info code with warnings
+}
+
+if (commandLine.hasOption("-withReflectionCode")) {
+    if (!unsafeMasterSwitch) {
+        throw new Exception(
+            "ERROR: -withReflectionCode requires -UNSAFE flag.\n" +
+            "Reflection is not functional safety ready.");
+    }
+}
+
+if (commandLine.hasOption("-withJsonCode")) {
+    if (!unsafeMasterSwitch) {
+        throw new Exception(
+            "ERROR: -withJsonCode requires -UNSAFE flag.\n" +
+            "JSON serialization is not functional safety ready.");
+    }
+}
+```
+
+### Clear Warnings in Unsafe Code
+
+```cpp
+// In unsafe/JsonEncoder.h (and all unsafe headers)
+#ifndef ZSERIO_CPP11_UNSAFE_MODE
+#error "This file requires UNSAFE mode. Do not include in production code!"
+#endif
+
+namespace zserio {
+namespace unsafe {
+
+/**
+ * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ * !!                                               !!
+ * !!  WARNING: DEVELOPMENT USE ONLY                !!
+ * !!  NOT FOR PRODUCTION OR SAFETY-CRITICAL USE    !!
+ * !!                                               !!
+ * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ */
+class JsonEncoder {
+    // Implementation
+};
+
+} // namespace unsafe
+} // namespace zserio
+```
+
+### Benefits of Phase 1
+
+1. **Clear Scope**: Identifies exactly what needs safety refactoring
+2. **No Accidental Usage**: Unsafe features require explicit opt-in
+3. **Simplified Verification**: Safety auditors can ignore unsafe/ directory
+4. **Gradual Migration**: Users can still access familiar features during transition
+5. **Architectural Clarity**: Physical separation enforces design boundaries
+
+## Phase 2: Result<T> Pattern Implementation
 
 ### Design Choice: Result<T> vs std::expected
 
@@ -677,119 +829,181 @@ This relocation happens after the safe runtime conversion is complete, ensuring:
 4. **Generated Code**: Proper noexcept specifications based on member types
 5. **Template Functions**: Conditional noexcept based on template parameters
 
-## Phase 3: Unsafe Extensions Management
+## Phase 4: Code Generator Updates
 
-### Clear Separation of Functional Safety Ready and Development Features
+### Overview
 
-All features that are not suitable for functional safety will be moved to a clearly marked "unsafe" directory:
+The code generator must be updated to produce exception-free code that uses the Result<T>-based runtime APIs. This phase transforms how zserio generates C++ code, ensuring all generated code follows functional safety principles.
 
-```
-runtime/src/zserio/
-├── BitStreamReader.h        # Functional safety ready core
-├── BitStreamWriter.h
-├── Result.h
-├── ErrorCode.h
-├── ...
-└── unsafe/                  # NOT FOR PRODUCTION USE
-    ├── CppRuntimeException.h  # Exception-based compatibility
-    ├── JsonEncoder.h          # Dynamic allocation, unbounded operations
-    ├── Reflectable.h          # Runtime type information
-    ├── ITypeInfo.h            # Introspection support
-    ├── TypeInfo.h
-    ├── Walker.h
-    └── ...
-```
+### Key Changes
 
-> **Implementation Note**: Exception classes (CppRuntimeException and related) remain in their current location during Phases 1 and 2. They will be relocated to the unsafe/ directory as part of Phase 3, after the safe runtime conversion is complete. At that point, only unsafe features will use exceptions, making the architectural boundary crystal clear.
+#### Deserialization Factory Pattern
 
-### Build Configuration
-
-```cmake
-# CMakeLists.txt
-option(ZSERIO_CPP11_UNSAFE
-       "UNSAFE: Enable development-only extensions - NEVER USE IN PRODUCTION!" OFF)
-
-if(ZSERIO_CPP11_UNSAFE)
-    message(WARNING "")
-    message(WARNING "================================================")
-    message(WARNING "UNSAFE EXTENSIONS ENABLED - NOT FOR PRODUCTION!")
-    message(WARNING "This build includes non-functional-safety-ready code!")
-    message(WARNING "================================================")
-    message(WARNING "")
-
-    # Unsafe extensions CAN use exceptions
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
-
-    add_subdirectory(src/zserio/unsafe)
-    target_compile_definitions(ZserioCppRuntime
-        PUBLIC ZSERIO_CPP11_UNSAFE_MODE)
-else()
-    # Production mode: absolutely no exceptions
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-exceptions")
-endif()
-```
-
-### Code Generation Control
-
-```java
-// In code generator
-boolean unsafeMasterSwitch = commandLine.hasOption("-UNSAFE");
-
-if (commandLine.hasOption("-withTypeInfo")) {
-    if (!unsafeMasterSwitch) {
-        throw new Exception(
-            "ERROR: -withTypeInfo requires -UNSAFE flag.\n" +
-            "Type info is not functional safety ready. To acknowledge this risk,\n" +
-            "you must explicitly enable -UNSAFE mode.");
-    }
-    // Generate type info code with warnings
-}
-
-if (commandLine.hasOption("-withReflectionCode")) {
-    if (!unsafeMasterSwitch) {
-        throw new Exception(
-            "ERROR: -withReflectionCode requires -UNSAFE flag.\n" +
-            "Reflection is not functional safety ready.");
-    }
-}
-
-if (commandLine.hasOption("-withJsonCode")) {
-    if (!unsafeMasterSwitch) {
-        throw new Exception(
-            "ERROR: -withJsonCode requires -UNSAFE flag.\n" +
-            "JSON serialization is not functional safety ready.");
-    }
-}
-```
-
-### Clear Warnings in Unsafe Code
+Generated structures use static factory methods for construction that can fail:
 
 ```cpp
-// In unsafe/CppRuntimeException.h
-#ifndef ZSERIO_CPP11_UNSAFE_MODE
-#error "This file requires UNSAFE mode. Do not include in production code!"
-#endif
-
-namespace zserio {
-namespace unsafe {
-
-/**
- * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- * !!                                               !!
- * !!  WARNING: DEVELOPMENT USE ONLY                !!
- * !!  NOT FOR PRODUCTION OR SAFETY-CRITICAL USE    !!
- * !!                                               !!
- * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- */
-class CppRuntimeException : public std::exception {
-    // Exception-based error handling for development/debugging
+// Generated code pattern
+class MyMessage {
+public:
+    // Simple constructor - cannot fail
+    explicit MyMessage(const allocator_type& allocator = allocator_type()) noexcept;
+    
+    // Factory method for deserialization
+    static Result<MyMessage> deserialize(
+        BitStreamReader& reader,
+        const allocator_type& allocator = allocator_type()) noexcept {
+        
+        MyMessage obj(allocator);
+        
+        // Read field1
+        auto field1Result = reader.readBits(16);
+        if (field1Result.isError()) {
+            return Result<MyMessage>::error(field1Result.getError());
+        }
+        obj.m_field1 = field1Result.getValue();
+        
+        // Read array size
+        auto sizeResult = reader.readVarSize();
+        if (sizeResult.isError()) {
+            return Result<MyMessage>::error(sizeResult.getError());
+        }
+        
+        // TODO: STL reserve may abort!
+        obj.m_array.reserve(sizeResult.getValue());
+        
+        // Read array elements
+        for (size_t i = 0; i < sizeResult.getValue(); ++i) {
+            auto elemResult = Element::deserialize(reader, allocator);
+            if (elemResult.isError()) {
+                return Result<MyMessage>::error(elemResult.getError());
+            }
+            obj.m_array.push_back(elemResult.moveValue());
+        }
+        
+        // Initialize parameterized children
+        auto initResult = obj.initializeChildren();
+        if (initResult.isError()) {
+            return Result<MyMessage>::error(initResult.getError());
+        }
+        
+        return Result<MyMessage>::success(std::move(obj));
+    }
 };
-
-} // namespace unsafe
-} // namespace zserio
 ```
 
-## Phase 4: Memory Management and PMR Integration
+#### Write Methods with Error Handling
+
+```cpp
+Result<void> write(BitStreamWriter& writer) const noexcept {
+    // Write field1
+    auto result = writer.writeBits(m_field1, 16);
+    if (result.isError()) {
+        return result;
+    }
+    
+    // Write array size
+    result = writer.writeVarSize(static_cast<uint32_t>(m_array.size()));
+    if (result.isError()) {
+        return result;
+    }
+    
+    // Write array elements
+    for (const auto& elem : m_array) {
+        result = elem.write(writer);
+        if (result.isError()) {
+            return result;
+        }
+    }
+    
+    return Result<void>::success();
+}
+```
+
+#### Size Calculation with Overflow Protection
+
+```cpp
+Result<size_t> bitSizeOf(size_t bitPosition = 0) const noexcept {
+    size_t endBitPosition = bitPosition;
+    
+    // Add field1 size
+    endBitPosition += 16;
+    
+    // Add array size field
+    auto varSizeBits = zserio::bitSizeOfVarSize(static_cast<uint32_t>(m_array.size()));
+    if (endBitPosition > SIZE_MAX - varSizeBits) {
+        return Result<size_t>::error(ErrorCode::NumericOverflow);
+    }
+    endBitPosition += varSizeBits;
+    
+    // Add array elements
+    for (const auto& elem : m_array) {
+        auto elemSizeResult = elem.bitSizeOf(endBitPosition);
+        if (elemSizeResult.isError()) {
+            return elemSizeResult;
+        }
+        if (endBitPosition > SIZE_MAX - elemSizeResult.getValue()) {
+            return Result<size_t>::error(ErrorCode::NumericOverflow);
+        }
+        endBitPosition += elemSizeResult.getValue();
+    }
+    
+    return Result<size_t>::success(endBitPosition - bitPosition);
+}
+```
+
+### Template Updates
+
+All FreeMarker templates must be updated:
+
+1. **Structure Templates** (*.h.ftl, *.cpp.ftl)
+   - Add static deserialize factory method
+   - Convert write() to return Result<void>
+   - Update bitSizeOf() for overflow checking
+   - Add noexcept specifications
+
+2. **Choice/Union Templates**
+   - Handle variant selection with error codes
+   - Validate choice tags
+
+3. **Service Templates**
+   - Generate Result-based method signatures
+   - Remove exception-based error handling
+
+### Code Generation Options
+
+```java
+// New safety-oriented options
+if (commandLine.hasOption("-cpp11safe")) {
+    // Generate Result<T> based code
+    context.setExceptionFree(true);
+    context.setUseFactoryPattern(true);
+}
+
+// Validate incompatible options
+if (context.isExceptionFree() && commandLine.hasOption("-withValidation")) {
+    // Validation code uses exceptions
+    throw new Exception(
+        "ERROR: -withValidation is incompatible with -cpp11safe.\n" +
+        "Validation code uses exceptions and is not safety-ready.");
+}
+```
+
+### Generated Code Warnings
+
+```cpp
+// Generated file header
+/**
+ * Generated by Zserio C++11 Safe Extension
+ * 
+ * WARNING: This code is designed for functional safety.
+ * - No exceptions are thrown
+ * - All errors must be explicitly checked
+ * - STL containers may abort on allocation failure
+ * - See safety manual for proper usage
+ */
+```
+
+## Phase 5: Memory Management and PMR Integration
 
 ### Working with Existing PMR Infrastructure
 
@@ -980,7 +1194,7 @@ class VehicleDataProcessor {
 - Convert BitStreamReader/Writer to Result<T>
 - Update all type support classes
 - Focus only on safe subset identified in Phase 1
-- Maintain backwards compatibility where possible
+- Move exception classes to unsafe/ after conversion
 
 ### Phase 4: Code Generator Updates
 - Generate Result<T>-based APIs
@@ -995,33 +1209,31 @@ class VehicleDataProcessor {
 - Document best practices for bounded memory usage
 - Create domain-specific memory pool examples
 
-## Migration Support
+## Migration Strategy
 
-### Backwards Compatibility
+### Clean Break Approach
 
-During transition, we can support both APIs:
+The safe C++11 extension is a separate implementation with no backwards compatibility:
 
 ```cpp
-#ifdef ZSERIO_ENABLE_EXCEPTIONS
-    // Traditional exception-based API
-    int32_t readInt32() {
-        auto result = readInt32Result();
-        if (result.isError()) {
-            throw CppRuntimeException("Read failed");
-        }
-        return result.getValue();
-    }
-#endif
+// Safe runtime - ONLY Result<T> API
+namespace zserio {
+    class BitStreamReader {
+        Result<uint32_t> readBits(uint8_t numBits) noexcept;
+        // No exception-throwing variants
+    };
+}
 
-// New Result-based API
-Result<int32_t> readInt32Result() noexcept;
+// Original runtime still available separately
+// Users must choose which to use
 ```
 
-### Phased Adoption
-1. Opt-in Result<T> API
-2. Result<T> default, exceptions opt-in
-3. Exception support deprecated
-4. Exception support removed
+### Migration Path
+1. Evaluate safety requirements
+2. Choose safe or standard C++ extension
+3. Update build configuration
+4. Port code to Result<T> pattern
+5. Implement proper error handling
 
 ## Future Improvements: Custom Container Strategy
 
