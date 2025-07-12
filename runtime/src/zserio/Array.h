@@ -10,6 +10,8 @@
 #include "zserio/BitStreamReader.h"
 #include "zserio/BitStreamWriter.h"
 #include "zserio/DeltaContext.h"
+#include "zserio/ErrorCode.h"
+#include "zserio/Result.h"
 #include "zserio/SizeConvertUtil.h"
 #include "zserio/Traits.h"
 #include "zserio/UniquePtr.h"
@@ -242,33 +244,45 @@ size_t packedArrayTraitsInitializeOffsets(OWNER_TYPE&, PACKING_CONTEXT& context,
 template <typename ARRAY_TRAITS, typename OWNER_TYPE, typename RAW_ARRAY,
         typename std::enable_if<has_owner_type<ARRAY_TRAITS>::value && !has_allocator<ARRAY_TRAITS>::value,
                 int>::type = 0>
-void arrayTraitsRead(const OWNER_TYPE& owner, RAW_ARRAY& rawArray, BitStreamReader& in, size_t index)
+Result<void> arrayTraitsRead(const OWNER_TYPE& owner, RAW_ARRAY& rawArray, BitStreamReader& in, size_t index) noexcept
 {
-    rawArray.push_back(ARRAY_TRAITS::read(owner, in, index));
+    auto result = ARRAY_TRAITS::read(owner, in, index);
+    if (result.isError())
+    {
+        return Result<void>::error(result.getError());
+    }
+    rawArray.push_back(result.moveValue());
+    return Result<void>::success();
 }
 
 template <typename ARRAY_TRAITS, typename OWNER_TYPE, typename RAW_ARRAY,
         typename std::enable_if<has_owner_type<ARRAY_TRAITS>::value && has_allocator<ARRAY_TRAITS>::value,
                 int>::type = 0>
-void arrayTraitsRead(OWNER_TYPE& owner, RAW_ARRAY& rawArray, BitStreamReader& in, size_t index)
+Result<void> arrayTraitsRead(OWNER_TYPE& owner, RAW_ARRAY& rawArray, BitStreamReader& in, size_t index) noexcept
 {
-    ARRAY_TRAITS::read(owner, rawArray, in, index);
+    return ARRAY_TRAITS::read(owner, rawArray, in, index);
 }
 
 template <typename ARRAY_TRAITS, typename OWNER_TYPE, typename RAW_ARRAY,
         typename std::enable_if<!has_owner_type<ARRAY_TRAITS>::value && !has_allocator<ARRAY_TRAITS>::value,
                 int>::type = 0>
-void arrayTraitsRead(const OWNER_TYPE&, RAW_ARRAY& rawArray, BitStreamReader& in, size_t index)
+Result<void> arrayTraitsRead(const OWNER_TYPE&, RAW_ARRAY& rawArray, BitStreamReader& in, size_t index) noexcept
 {
-    rawArray.push_back(ARRAY_TRAITS::read(in, index));
+    auto result = ARRAY_TRAITS::read(in, index);
+    if (result.isError())
+    {
+        return Result<void>::error(result.getError());
+    }
+    rawArray.push_back(result.moveValue());
+    return Result<void>::success();
 }
 
 template <typename ARRAY_TRAITS, typename OWNER_TYPE, typename RAW_ARRAY,
         typename std::enable_if<!has_owner_type<ARRAY_TRAITS>::value && has_allocator<ARRAY_TRAITS>::value,
                 int>::type = 0>
-void arrayTraitsRead(const OWNER_TYPE&, RAW_ARRAY& rawArray, BitStreamReader& in, size_t index)
+Result<void> arrayTraitsRead(const OWNER_TYPE&, RAW_ARRAY& rawArray, BitStreamReader& in, size_t index) noexcept
 {
-    ARRAY_TRAITS::read(rawArray, in, index);
+    return ARRAY_TRAITS::read(rawArray, in, index);
 }
 
 // calls the read method properly on packed array traits
@@ -276,20 +290,26 @@ template <typename PACKED_ARRAY_TRAITS, typename OWNER_TYPE, typename RAW_ARRAY,
         typename std::enable_if<has_owner_type<PACKED_ARRAY_TRAITS>::value &&
                         has_allocator<PACKED_ARRAY_TRAITS>::value,
                 int>::type = 0>
-void packedArrayTraitsRead(
-        OWNER_TYPE& owner, RAW_ARRAY& rawArray, PACKING_CONTEXT& context, BitStreamReader& in, size_t index)
+Result<void> packedArrayTraitsRead(
+        OWNER_TYPE& owner, RAW_ARRAY& rawArray, PACKING_CONTEXT& context, BitStreamReader& in, size_t index) noexcept
 {
-    PACKED_ARRAY_TRAITS::read(owner, rawArray, context, in, index);
+    return PACKED_ARRAY_TRAITS::read(owner, rawArray, context, in, index);
 }
 
 template <typename PACKED_ARRAY_TRAITS, typename OWNER_TYPE, typename RAW_ARRAY, typename PACKING_CONTEXT,
         typename std::enable_if<has_owner_type<PACKED_ARRAY_TRAITS>::value &&
                         !has_allocator<PACKED_ARRAY_TRAITS>::value,
                 int>::type = 0>
-void packedArrayTraitsRead(const OWNER_TYPE& owner, RAW_ARRAY& rawArray, PACKING_CONTEXT& context,
-        BitStreamReader& in, size_t index)
+Result<void> packedArrayTraitsRead(const OWNER_TYPE& owner, RAW_ARRAY& rawArray, PACKING_CONTEXT& context,
+        BitStreamReader& in, size_t index) noexcept
 {
-    rawArray.push_back(PACKED_ARRAY_TRAITS::read(owner, context, in, index));
+    auto result = PACKED_ARRAY_TRAITS::read(owner, context, in, index);
+    if (result.isError())
+    {
+        return Result<void>::error(result.getError());
+    }
+    rawArray.push_back(result.moveValue());
+    return Result<void>::success();
 }
 
 // note: types which doesn't have owner and have allocator are never packed (e.g. string, bytes ...)
@@ -299,44 +319,50 @@ template <typename PACKED_ARRAY_TRAITS, typename OWNER_TYPE, typename RAW_ARRAY,
         typename std::enable_if<!has_owner_type<PACKED_ARRAY_TRAITS>::value &&
                         !has_allocator<PACKED_ARRAY_TRAITS>::value,
                 int>::type = 0>
-void packedArrayTraitsRead(
-        const OWNER_TYPE&, RAW_ARRAY& rawArray, PACKING_CONTEXT& context, BitStreamReader& in, size_t index)
+Result<void> packedArrayTraitsRead(
+        const OWNER_TYPE&, RAW_ARRAY& rawArray, PACKING_CONTEXT& context, BitStreamReader& in, size_t index) noexcept
 {
-    rawArray.push_back(PACKED_ARRAY_TRAITS::read(context, in, index));
+    auto result = PACKED_ARRAY_TRAITS::read(context, in, index);
+    if (result.isError())
+    {
+        return Result<void>::error(result.getError());
+    }
+    rawArray.push_back(result.moveValue());
+    return Result<void>::success();
 }
 
 // call the write method properly on array traits
 template <typename ARRAY_TRAITS, typename OWNER_TYPE,
         typename std::enable_if<has_owner_type<ARRAY_TRAITS>::value, int>::type = 0>
-void arrayTraitsWrite(
-        const OWNER_TYPE& owner, BitStreamWriter& out, const typename ARRAY_TRAITS::ElementType& element)
+Result<void> arrayTraitsWrite(
+        const OWNER_TYPE& owner, BitStreamWriter& out, const typename ARRAY_TRAITS::ElementType& element) noexcept
 {
-    ARRAY_TRAITS::write(owner, out, element);
+    return ARRAY_TRAITS::write(owner, out, element);
 }
 
 template <typename ARRAY_TRAITS, typename OWNER_TYPE,
         typename std::enable_if<!has_owner_type<ARRAY_TRAITS>::value, int>::type = 0>
-void arrayTraitsWrite(
-        const OWNER_TYPE&, BitStreamWriter& out, const typename ARRAY_TRAITS::ElementType& element)
+Result<void> arrayTraitsWrite(
+        const OWNER_TYPE&, BitStreamWriter& out, const typename ARRAY_TRAITS::ElementType& element) noexcept
 {
-    ARRAY_TRAITS::write(out, element);
+    return ARRAY_TRAITS::write(out, element);
 }
 
 // call the write method properly on packed array traits
 template <typename PACKED_ARRAY_TRAITS, typename OWNER_TYPE, typename PACKING_CONTEXT,
         typename std::enable_if<has_owner_type<PACKED_ARRAY_TRAITS>::value, int>::type = 0>
-void packedArrayTraitsWrite(const OWNER_TYPE& owner, PACKING_CONTEXT& context, BitStreamWriter& out,
-        const typename PACKED_ARRAY_TRAITS::ElementType& element)
+Result<void> packedArrayTraitsWrite(const OWNER_TYPE& owner, PACKING_CONTEXT& context, BitStreamWriter& out,
+        const typename PACKED_ARRAY_TRAITS::ElementType& element) noexcept
 {
-    PACKED_ARRAY_TRAITS::write(owner, context, out, element);
+    return PACKED_ARRAY_TRAITS::write(owner, context, out, element);
 }
 
 template <typename PACKED_ARRAY_TRAITS, typename OWNER_TYPE, typename PACKING_CONTEXT,
         typename std::enable_if<!has_owner_type<PACKED_ARRAY_TRAITS>::value, int>::type = 0>
-void packedArrayTraitsWrite(const OWNER_TYPE&, PACKING_CONTEXT& context, BitStreamWriter& out,
-        const typename PACKED_ARRAY_TRAITS::ElementType& element)
+Result<void> packedArrayTraitsWrite(const OWNER_TYPE&, PACKING_CONTEXT& context, BitStreamWriter& out,
+        const typename PACKED_ARRAY_TRAITS::ElementType& element) noexcept
 {
-    PACKED_ARRAY_TRAITS::write(context, out, element);
+    return PACKED_ARRAY_TRAITS::write(context, out, element);
 }
 
 } // namespace detail
@@ -667,10 +693,10 @@ public:
      */
     template <typename OWNER_TYPE_ = OwnerType,
             typename std::enable_if<std::is_same<OWNER_TYPE_, detail::DummyArrayOwner>::value, int>::type = 0>
-    void read(BitStreamReader& in, size_t arrayLength = 0)
+    Result<void> read(BitStreamReader& in, size_t arrayLength = 0) noexcept
     {
         detail::DummyArrayOwner owner;
-        readImpl(owner, in, arrayLength);
+        return readImpl(owner, in, arrayLength);
     }
 
     /**
@@ -684,9 +710,9 @@ public:
      */
     template <typename OWNER_TYPE_ = OwnerType,
             typename std::enable_if<!std::is_same<OWNER_TYPE_, detail::DummyArrayOwner>::value, int>::type = 0>
-    void read(OwnerType& owner, BitStreamReader& in, size_t arrayLength = 0)
+    Result<void> read(OwnerType& owner, BitStreamReader& in, size_t arrayLength = 0) noexcept
     {
-        readImpl(owner, in, arrayLength);
+        return readImpl(owner, in, arrayLength);
     }
 
     /**
@@ -698,9 +724,9 @@ public:
      */
     template <typename OWNER_TYPE_ = OwnerType,
             typename std::enable_if<std::is_same<OWNER_TYPE_, detail::DummyArrayOwner>::value, int>::type = 0>
-    void write(BitStreamWriter& out) const
+    Result<void> write(BitStreamWriter& out) const noexcept
     {
-        writeImpl(detail::DummyArrayOwner(), out);
+        return writeImpl(detail::DummyArrayOwner(), out);
     }
 
     /**
@@ -713,9 +739,9 @@ public:
      */
     template <typename OWNER_TYPE_ = OwnerType,
             typename std::enable_if<!std::is_same<OWNER_TYPE_, detail::DummyArrayOwner>::value, int>::type = 0>
-    void write(const OwnerType& owner, BitStreamWriter& out) const
+    Result<void> write(const OwnerType& owner, BitStreamWriter& out) const noexcept
     {
-        writeImpl(owner, out);
+        return writeImpl(owner, out);
     }
 
     /**
@@ -795,10 +821,10 @@ public:
      */
     template <typename OWNER_TYPE_ = OwnerType,
             typename std::enable_if<std::is_same<OWNER_TYPE_, detail::DummyArrayOwner>::value, int>::type = 0>
-    void readPacked(BitStreamReader& in, size_t arrayLength = 0)
+    Result<void> readPacked(BitStreamReader& in, size_t arrayLength = 0) noexcept
     {
         detail::DummyArrayOwner owner;
-        readPackedImpl(owner, in, arrayLength);
+        return readPackedImpl(owner, in, arrayLength);
     }
 
     /**
@@ -812,9 +838,9 @@ public:
      */
     template <typename OWNER_TYPE_ = OwnerType,
             typename std::enable_if<!std::is_same<OWNER_TYPE_, detail::DummyArrayOwner>::value, int>::type = 0>
-    void readPacked(OwnerType& owner, BitStreamReader& in, size_t arrayLength = 0)
+    Result<void> readPacked(OwnerType& owner, BitStreamReader& in, size_t arrayLength = 0) noexcept
     {
-        readPackedImpl(owner, in, arrayLength);
+        return readPackedImpl(owner, in, arrayLength);
     }
 
     /**
@@ -826,9 +852,9 @@ public:
      */
     template <typename OWNER_TYPE_ = OwnerType,
             typename std::enable_if<std::is_same<OWNER_TYPE_, detail::DummyArrayOwner>::value, int>::type = 0>
-    void writePacked(BitStreamWriter& out) const
+    Result<void> writePacked(BitStreamWriter& out) const noexcept
     {
-        writePackedImpl(detail::DummyArrayOwner(), out);
+        return writePackedImpl(detail::DummyArrayOwner(), out);
     }
 
     /**
@@ -841,9 +867,9 @@ public:
      */
     template <typename OWNER_TYPE_ = OwnerType,
             typename std::enable_if<!std::is_same<OWNER_TYPE_, detail::DummyArrayOwner>::value, int>::type = 0>
-    void writePacked(const OwnerType& owner, BitStreamWriter& out) const
+    Result<void> writePacked(const OwnerType& owner, BitStreamWriter& out) const noexcept
     {
-        writePackedImpl(owner, out);
+        return writePackedImpl(owner, out);
     }
 
 private:
@@ -878,16 +904,27 @@ private:
     template <typename IO, typename OWNER_TYPE, ArrayType ARRAY_TYPE_ = ARRAY_TYPE,
             typename std::enable_if<ARRAY_TYPE_ != ArrayType::ALIGNED && ARRAY_TYPE_ != ArrayType::ALIGNED_AUTO,
                     int>::type = 0>
-    static void alignAndCheckOffset(IO&, OWNER_TYPE&, size_t)
-    {}
+    static Result<void> alignAndCheckOffset(IO&, OWNER_TYPE&, size_t) noexcept
+    {
+        return Result<void>::success();
+    }
 
     template <typename IO, typename OWNER_TYPE, ArrayType ARRAY_TYPE_ = ARRAY_TYPE,
             typename std::enable_if<ARRAY_TYPE_ == ArrayType::ALIGNED || ARRAY_TYPE_ == ArrayType::ALIGNED_AUTO,
                     int>::type = 0>
-    static void alignAndCheckOffset(IO& io, OWNER_TYPE& owner, size_t index)
+    static Result<void> alignAndCheckOffset(IO& io, OWNER_TYPE& owner, size_t index) noexcept
     {
-        io.alignTo(8);
-        detail::checkOffset<ArrayExpressions>(owner, index, io.getBitPosition() / 8);
+        auto alignResult = io.alignTo(8);
+        if (alignResult.isError())
+        {
+            return alignResult;
+        }
+        auto checkResult = detail::checkOffset<ArrayExpressions>(owner, index, io.getBitPosition() / 8);
+        if (checkResult.isError())
+        {
+            return checkResult;
+        }
+        return Result<void>::success();
     }
 
     template <ArrayType ARRAY_TYPE_ = ARRAY_TYPE,
@@ -909,42 +946,49 @@ private:
             typename std::enable_if<ARRAY_TYPE_ != ArrayType::AUTO && ARRAY_TYPE_ != ArrayType::ALIGNED_AUTO &&
                             ARRAY_TYPE_ != ArrayType::IMPLICIT,
                     int>::type = 0>
-    static size_t readArrayLength(OwnerType&, BitStreamReader&, size_t arrayLength)
+    static Result<size_t> readArrayLength(OwnerType&, BitStreamReader&, size_t arrayLength) noexcept
     {
-        return arrayLength;
+        return Result<size_t>::success(arrayLength);
     }
 
     template <ArrayType ARRAY_TYPE_ = ARRAY_TYPE,
             typename std::enable_if<ARRAY_TYPE_ == ArrayType::AUTO || ARRAY_TYPE_ == ArrayType::ALIGNED_AUTO,
                     int>::type = 0>
-    static size_t readArrayLength(OwnerType&, BitStreamReader& in, size_t)
+    static Result<size_t> readArrayLength(OwnerType&, BitStreamReader& in, size_t) noexcept
     {
         return in.readVarSize();
     }
 
     template <ArrayType ARRAY_TYPE_ = ARRAY_TYPE,
             typename std::enable_if<ARRAY_TYPE_ == ArrayType::IMPLICIT, int>::type = 0>
-    static size_t readArrayLength(OwnerType& owner, BitStreamReader& in, size_t)
+    static Result<size_t> readArrayLength(OwnerType& owner, BitStreamReader& in, size_t) noexcept
     {
         static_assert(ARRAY_TYPE != ArrayType::IMPLICIT || ArrayTraits::IS_BITSIZEOF_CONSTANT,
                 "Implicit array elements must have constant bit size!");
 
         const size_t remainingBits = in.getBufferBitSize() - in.getBitPosition();
-        return remainingBits / detail::arrayTraitsConstBitSizeOf<ArrayTraits>(owner);
+        const size_t elementBitSize = detail::arrayTraitsConstBitSizeOf<ArrayTraits>(owner);
+        if (elementBitSize == 0)
+        {
+            return Result<size_t>::error(ErrorCode::DivisionByZero);
+        }
+        return Result<size_t>::success(remainingBits / elementBitSize);
     }
 
     template <ArrayType ARRAY_TYPE_ = ARRAY_TYPE,
             typename std::enable_if<ARRAY_TYPE_ != ArrayType::AUTO && ARRAY_TYPE_ != ArrayType::ALIGNED_AUTO,
                     int>::type = 0>
-    static void writeArrayLength(BitStreamWriter&, size_t)
-    {}
+    static Result<void> writeArrayLength(BitStreamWriter&, size_t) noexcept
+    {
+        return Result<void>::success();
+    }
 
     template <ArrayType ARRAY_TYPE_ = ARRAY_TYPE,
             typename std::enable_if<ARRAY_TYPE_ == ArrayType::AUTO || ARRAY_TYPE_ == ArrayType::ALIGNED_AUTO,
                     int>::type = 0>
-    static void writeArrayLength(BitStreamWriter& out, size_t arrayLength)
+    static Result<void> writeArrayLength(BitStreamWriter& out, size_t arrayLength) noexcept
     {
-        out.writeVarSize(convertSizeToUInt32(arrayLength));
+        return out.writeVarSize(convertSizeToUInt32(arrayLength));
     }
 
     template <ArrayType ARRAY_TYPE_ = ARRAY_TYPE,
@@ -1020,29 +1064,56 @@ private:
         return endBitPosition;
     }
 
-    void readImpl(OwnerType& owner, BitStreamReader& in, size_t arrayLength)
+    Result<void> readImpl(OwnerType& owner, BitStreamReader& in, size_t arrayLength) noexcept
     {
-        size_t readLength = readArrayLength(owner, in, arrayLength);
+        auto lengthResult = readArrayLength(owner, in, arrayLength);
+        if (lengthResult.isError())
+        {
+            return Result<void>::error(lengthResult.getError());
+        }
+        size_t readLength = lengthResult.getValue();
 
         m_rawArray.clear();
         m_rawArray.reserve(readLength);
         for (size_t index = 0; index < readLength; ++index)
         {
-            alignAndCheckOffset(in, owner, index);
-            detail::arrayTraitsRead<ArrayTraits>(owner, m_rawArray, in, index);
+            auto alignResult = alignAndCheckOffset(in, owner, index);
+            if (alignResult.isError())
+            {
+                return alignResult;
+            }
+            auto readResult = detail::arrayTraitsRead<ArrayTraits>(owner, m_rawArray, in, index);
+            if (readResult.isError())
+            {
+                return readResult;
+            }
         }
+        return Result<void>::success();
     }
 
-    void writeImpl(const OwnerType& owner, BitStreamWriter& out) const
+    Result<void> writeImpl(const OwnerType& owner, BitStreamWriter& out) const noexcept
     {
         const size_t arrayLength = m_rawArray.size();
-        writeArrayLength(out, arrayLength);
+        auto lengthResult = writeArrayLength(out, arrayLength);
+        if (lengthResult.isError())
+        {
+            return lengthResult;
+        }
 
         for (size_t index = 0; index < arrayLength; ++index)
         {
-            alignAndCheckOffset(out, owner, index);
-            detail::arrayTraitsWrite<ArrayTraits>(owner, out, m_rawArray[index]);
+            auto alignResult = alignAndCheckOffset(out, owner, index);
+            if (alignResult.isError())
+            {
+                return alignResult;
+            }
+            auto writeResult = detail::arrayTraitsWrite<ArrayTraits>(owner, out, m_rawArray[index]);
+            if (writeResult.isError())
+            {
+                return writeResult;
+            }
         }
+        return Result<void>::success();
     }
 
     using PackingContext = typename detail::packing_context_type<typename RawArray::value_type>::type;
@@ -1107,11 +1178,16 @@ private:
         return endBitPosition;
     }
 
-    void readPackedImpl(OwnerType& owner, BitStreamReader& in, size_t arrayLength = 0)
+    Result<void> readPackedImpl(OwnerType& owner, BitStreamReader& in, size_t arrayLength = 0) noexcept
     {
         static_assert(ARRAY_TYPE != ArrayType::IMPLICIT, "Implicit array cannot be packed!");
 
-        size_t readLength = readArrayLength(owner, in, arrayLength);
+        auto lengthResult = readArrayLength(owner, in, arrayLength);
+        if (lengthResult.isError())
+        {
+            return Result<void>::error(lengthResult.getError());
+        }
+        size_t readLength = lengthResult.getValue();
 
         m_rawArray.clear();
 
@@ -1123,19 +1199,32 @@ private:
 
             for (size_t index = 0; index < readLength; ++index)
             {
-                alignAndCheckOffset(in, owner, index);
-                detail::packedArrayTraitsRead<PackedArrayTraits<ArrayTraits>>(
+                auto alignResult = alignAndCheckOffset(in, owner, index);
+                if (alignResult.isError())
+                {
+                    return alignResult;
+                }
+                auto readResult = detail::packedArrayTraitsRead<PackedArrayTraits<ArrayTraits>>(
                         owner, m_rawArray, context, in, index);
+                if (readResult.isError())
+                {
+                    return readResult;
+                }
             }
         }
+        return Result<void>::success();
     }
 
-    void writePackedImpl(const OwnerType& owner, BitStreamWriter& out) const
+    Result<void> writePackedImpl(const OwnerType& owner, BitStreamWriter& out) const noexcept
     {
         static_assert(ARRAY_TYPE != ArrayType::IMPLICIT, "Implicit array cannot be packed!");
 
         const size_t arrayLength = m_rawArray.size();
-        writeArrayLength(out, arrayLength);
+        auto lengthResult = writeArrayLength(out, arrayLength);
+        if (lengthResult.isError())
+        {
+            return lengthResult;
+        }
 
         if (arrayLength > 0)
         {
@@ -1149,11 +1238,20 @@ private:
 
             for (size_t index = 0; index < arrayLength; ++index)
             {
-                alignAndCheckOffset(out, owner, index);
-                detail::packedArrayTraitsWrite<PackedArrayTraits<ArrayTraits>>(
+                auto alignResult = alignAndCheckOffset(out, owner, index);
+                if (alignResult.isError())
+                {
+                    return alignResult;
+                }
+                auto writeResult = detail::packedArrayTraitsWrite<PackedArrayTraits<ArrayTraits>>(
                         owner, context, out, m_rawArray[index]);
+                if (writeResult.isError())
+                {
+                    return writeResult;
+                }
             }
         }
+        return Result<void>::success();
     }
 
     RawArray m_rawArray;
