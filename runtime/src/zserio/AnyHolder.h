@@ -9,6 +9,7 @@
 #include "zserio/NoInit.h"
 #include "zserio/OptionalHolder.h"
 #include "zserio/RebindAlloc.h"
+#include "zserio/Result.h"
 #include "zserio/Traits.h"
 #include "zserio/Types.h"
 
@@ -38,16 +39,16 @@ class IHolder
 {
 public:
     virtual ~IHolder() = default;
-    virtual IHolder* clone(const ALLOC& allocator) const = 0;
-    virtual IHolder* clone(NoInitT, const ALLOC& allocator) const = 0;
-    virtual IHolder* clone(void* storage) const = 0;
-    virtual IHolder* clone(NoInitT, void* storage) const = 0;
-    virtual IHolder* move(const ALLOC& allocator) = 0;
-    virtual IHolder* move(NoInitT, const ALLOC& allocator) = 0;
-    virtual IHolder* move(void* storage) = 0;
-    virtual IHolder* move(NoInitT, void* storage) = 0;
-    virtual void destroy(const ALLOC& allocator) = 0;
-    virtual bool isType(detail::TypeIdHolder::type_id typeId) const = 0;
+    virtual Result<IHolder*> clone(const ALLOC& allocator) const noexcept = 0;
+    virtual Result<IHolder*> clone(NoInitT, const ALLOC& allocator) const noexcept = 0;
+    virtual Result<IHolder*> clone(void* storage) const noexcept = 0;
+    virtual Result<IHolder*> clone(NoInitT, void* storage) const noexcept = 0;
+    virtual Result<IHolder*> move(const ALLOC& allocator) noexcept = 0;
+    virtual Result<IHolder*> move(NoInitT, const ALLOC& allocator) noexcept = 0;
+    virtual Result<IHolder*> move(void* storage) noexcept = 0;
+    virtual Result<IHolder*> move(NoInitT, void* storage) noexcept = 0;
+    virtual void destroy(const ALLOC& allocator) noexcept = 0;
+    virtual bool isType(detail::TypeIdHolder::type_id typeId) const noexcept = 0;
 };
 
 // Base of object holders, holds a value in the inplace_optional_holder
@@ -152,67 +153,94 @@ public:
     explicit HeapHolder(ConstructTag) noexcept
     {}
 
-    static this_type* create(const ALLOC& allocator)
+    static Result<this_type*> create(const ALLOC& allocator) noexcept
     {
         using AllocType = RebindAlloc<ALLOC, this_type>;
         using AllocTraits = std::allocator_traits<AllocType>;
 
-        AllocType typedAlloc = allocator;
-        typename AllocTraits::pointer ptr = AllocTraits::allocate(typedAlloc, 1);
-        // this never throws because HeapHolder constructor never throws
-        AllocTraits::construct(typedAlloc, std::addressof(*ptr), ConstructTag{});
-        return ptr;
+        try
+        {
+            AllocType typedAlloc = allocator;
+            typename AllocTraits::pointer ptr = AllocTraits::allocate(typedAlloc, 1);
+            // this never throws because HeapHolder constructor never throws
+            AllocTraits::construct(typedAlloc, std::addressof(*ptr), ConstructTag{});
+            return Result<this_type*>::success(ptr);
+        }
+        catch (...)
+        {
+            return Result<this_type*>::error(ErrorCode::AllocationFailed);
+        }
     }
 
-    IHolder<ALLOC>* clone(const ALLOC& allocator) const override
+    Result<IHolder<ALLOC>*> clone(const ALLOC& allocator) const noexcept override
     {
-        this_type* holder = create(allocator);
+        auto holderResult = create(allocator);
+        if (holderResult.isError())
+        {
+            return Result<IHolder<ALLOC>*>::error(holderResult.getError());
+        }
+        this_type* holder = holderResult.getValue();
         holder->setHolder(this->getHolder());
-        return holder;
+        return Result<IHolder<ALLOC>*>::success(static_cast<IHolder<ALLOC>*>(holder));
     }
 
-    IHolder<ALLOC>* clone(NoInitT, const ALLOC& allocator) const override
+    Result<IHolder<ALLOC>*> clone(NoInitT, const ALLOC& allocator) const noexcept override
     {
-        this_type* holder = create(allocator);
+        auto holderResult = create(allocator);
+        if (holderResult.isError())
+        {
+            return Result<IHolder<ALLOC>*>::error(holderResult.getError());
+        }
+        this_type* holder = holderResult.getValue();
         holder->setHolder(NoInit, this->getHolder());
-        return holder;
+        return Result<IHolder<ALLOC>*>::success(static_cast<IHolder<ALLOC>*>(holder));
     }
 
-    IHolder<ALLOC>* clone(void*) const override
+    Result<IHolder<ALLOC>*> clone(void*) const noexcept override
     {
-        throw CppRuntimeException("AnyHolder: Unexpected clone call.");
+        return Result<IHolder<ALLOC>*>::error(ErrorCode::InvalidOperation);
     }
 
-    IHolder<ALLOC>* clone(NoInitT, void*) const override
+    Result<IHolder<ALLOC>*> clone(NoInitT, void*) const noexcept override
     {
-        throw CppRuntimeException("AnyHolder: Unexpected clone call.");
+        return Result<IHolder<ALLOC>*>::error(ErrorCode::InvalidOperation);
     }
 
-    IHolder<ALLOC>* move(const ALLOC& allocator) override
+    Result<IHolder<ALLOC>*> move(const ALLOC& allocator) noexcept override
     {
-        this_type* holder = create(allocator);
+        auto holderResult = create(allocator);
+        if (holderResult.isError())
+        {
+            return Result<IHolder<ALLOC>*>::error(holderResult.getError());
+        }
+        this_type* holder = holderResult.getValue();
         holder->setHolder(std::move(this->getHolder()));
-        return holder;
+        return Result<IHolder<ALLOC>*>::success(static_cast<IHolder<ALLOC>*>(holder));
     }
 
-    IHolder<ALLOC>* move(NoInitT, const ALLOC& allocator) override
+    Result<IHolder<ALLOC>*> move(NoInitT, const ALLOC& allocator) noexcept override
     {
-        this_type* holder = create(allocator);
+        auto holderResult = create(allocator);
+        if (holderResult.isError())
+        {
+            return Result<IHolder<ALLOC>*>::error(holderResult.getError());
+        }
+        this_type* holder = holderResult.getValue();
         holder->setHolder(NoInit, std::move(this->getHolder()));
-        return holder;
+        return Result<IHolder<ALLOC>*>::success(static_cast<IHolder<ALLOC>*>(holder));
     }
 
-    IHolder<ALLOC>* move(void*) override
+    Result<IHolder<ALLOC>*> move(void*) noexcept override
     {
-        throw CppRuntimeException("AnyHolder: Unexpected move call.");
+        return Result<IHolder<ALLOC>*>::error(ErrorCode::InvalidOperation);
     }
 
-    IHolder<ALLOC>* move(NoInitT, void*) override
+    Result<IHolder<ALLOC>*> move(NoInitT, void*) noexcept override
     {
-        throw CppRuntimeException("AnyHolder: Unexpected move call.");
+        return Result<IHolder<ALLOC>*>::error(ErrorCode::InvalidOperation);
     }
 
-    void destroy(const ALLOC& allocator) override
+    void destroy(const ALLOC& allocator) noexcept override
     {
         using AllocType = RebindAlloc<ALLOC, this_type>;
         using AllocTraits = std::allocator_traits<AllocType>;
@@ -235,55 +263,71 @@ public:
         return new (storage) this_type();
     }
 
-    IHolder<ALLOC>* clone(const ALLOC&) const override
+    Result<IHolder<ALLOC>*> clone(const ALLOC&) const noexcept override
     {
-        throw CppRuntimeException("AnyHolder: Unexpected clone call.");
+        return Result<IHolder<ALLOC>*>::error(ErrorCode::InvalidOperation);
     }
 
-    IHolder<ALLOC>* clone(NoInitT, const ALLOC&) const override
+    Result<IHolder<ALLOC>*> clone(NoInitT, const ALLOC&) const noexcept override
     {
-        throw CppRuntimeException("AnyHolder: Unexpected clone call.");
+        return Result<IHolder<ALLOC>*>::error(ErrorCode::InvalidOperation);
     }
 
-    IHolder<ALLOC>* clone(void* storage) const override
+    Result<IHolder<ALLOC>*> clone(void* storage) const noexcept override
     {
+        if (storage == nullptr)
+        {
+            return Result<IHolder<ALLOC>*>::error(ErrorCode::NullPointer);
+        }
         NonHeapHolder* holder = new (storage) NonHeapHolder();
         holder->setHolder(this->getHolder());
-        return holder;
+        return Result<IHolder<ALLOC>*>::success(static_cast<IHolder<ALLOC>*>(holder));
     }
 
-    IHolder<ALLOC>* clone(NoInitT, void* storage) const override
+    Result<IHolder<ALLOC>*> clone(NoInitT, void* storage) const noexcept override
     {
+        if (storage == nullptr)
+        {
+            return Result<IHolder<ALLOC>*>::error(ErrorCode::NullPointer);
+        }
         NonHeapHolder* holder = new (storage) NonHeapHolder();
         holder->setHolder(NoInit, this->getHolder());
-        return holder;
+        return Result<IHolder<ALLOC>*>::success(static_cast<IHolder<ALLOC>*>(holder));
     }
 
-    IHolder<ALLOC>* move(const ALLOC&) override
+    Result<IHolder<ALLOC>*> move(const ALLOC&) noexcept override
     {
-        throw CppRuntimeException("AnyHolder: Unexpected move call.");
+        return Result<IHolder<ALLOC>*>::error(ErrorCode::InvalidOperation);
     }
 
-    IHolder<ALLOC>* move(NoInitT, const ALLOC&) override
+    Result<IHolder<ALLOC>*> move(NoInitT, const ALLOC&) noexcept override
     {
-        throw CppRuntimeException("AnyHolder: Unexpected move call.");
+        return Result<IHolder<ALLOC>*>::error(ErrorCode::InvalidOperation);
     }
 
-    IHolder<ALLOC>* move(void* storage) override
+    Result<IHolder<ALLOC>*> move(void* storage) noexcept override
     {
+        if (storage == nullptr)
+        {
+            return Result<IHolder<ALLOC>*>::error(ErrorCode::NullPointer);
+        }
         NonHeapHolder* holder = new (storage) NonHeapHolder();
         holder->setHolder(std::move(this->getHolder()));
-        return holder;
+        return Result<IHolder<ALLOC>*>::success(static_cast<IHolder<ALLOC>*>(holder));
     }
 
-    IHolder<ALLOC>* move(NoInitT, void* storage) override
+    Result<IHolder<ALLOC>*> move(NoInitT, void* storage) noexcept override
     {
+        if (storage == nullptr)
+        {
+            return Result<IHolder<ALLOC>*>::error(ErrorCode::NullPointer);
+        }
         NonHeapHolder* holder = new (storage) NonHeapHolder();
         holder->setHolder(NoInit, std::move(this->getHolder()));
-        return holder;
+        return Result<IHolder<ALLOC>*>::success(static_cast<IHolder<ALLOC>*>(holder));
     }
 
-    void destroy(const ALLOC&) override
+    void destroy(const ALLOC&) noexcept override
     {
         this->~NonHeapHolder();
     }
@@ -592,50 +636,70 @@ public:
      * Sets any value to the holder.
      *
      * \param value Any value to set. Supports move semantic.
+     * \return Result indicating success or error code on failure.
      */
     template <typename T>
-    void set(T&& value)
+    Result<void> set(T&& value) noexcept
     {
-        createHolder<typename std::decay<T>::type>()->set(std::forward<T>(value));
+        auto holderResult = createHolder<typename std::decay<T>::type>();
+        if (holderResult.isError())
+        {
+            return Result<void>::error(holderResult.getError());
+        }
+        holderResult.getValue()->set(std::forward<T>(value));
+        return Result<void>::success();
     }
 
     /**
      * Sets any value to the holder and prevent initialization.
      *
      * \param value Any value to set. Supports move semantic.
+     * \return Result indicating success or error code on failure.
      */
     template <typename T>
-    void set(NoInitT, T&& value)
+    Result<void> set(NoInitT, T&& value) noexcept
     {
-        createHolder<typename std::decay<T>::type>()->set(NoInit, std::forward<T>(value));
+        auto holderResult = createHolder<typename std::decay<T>::type>();
+        if (holderResult.isError())
+        {
+            return Result<void>::error(holderResult.getError());
+        }
+        holderResult.getValue()->set(NoInit, std::forward<T>(value));
+        return Result<void>::success();
     }
 
     /**
      * Gets value of the given type.
      *
-     * \return Reference to value of the requested type if the type match to the stored value.
-     *
-     * \throw CppRuntimeException if the requested type doesn't match to the stored value.
+     * \return Result containing reference to value of the requested type if the type matches,
+     *         or error code if the type doesn't match or holder is empty.
      */
     template <typename T>
-    T& get()
+    Result<T&> get() noexcept
     {
-        checkType<T>();
-        return getHolder<T>(detail::has_non_heap_holder<T, ALLOC>())->get();
+        auto typeCheckResult = checkType<T>();
+        if (typeCheckResult.isError())
+        {
+            return Result<T&>::error(typeCheckResult.getError());
+        }
+        return Result<T&>::success(getHolder<T>(detail::has_non_heap_holder<T, ALLOC>())->get());
     }
 
     /**
      * Gets value of the given type.
      *
-     * \return Value of the requested type if the type match to the stored value.
-     *
-     * \throw CppRuntimeException if the requested type doesn't match to the stored value.
+     * \return Result containing const reference to value of the requested type if the type matches,
+     *         or error code if the type doesn't match or holder is empty.
      */
     template <typename T>
-    const T& get() const
+    Result<const T&> get() const noexcept
     {
-        checkType<T>();
-        return getHolder<T>(detail::has_non_heap_holder<T, ALLOC>())->get();
+        auto typeCheckResult = checkType<T>();
+        if (typeCheckResult.isError())
+        {
+            return Result<const T&>::error(typeCheckResult.getError());
+        }
+        return Result<const T&>::success(getHolder<T>(detail::has_non_heap_holder<T, ALLOC>())->get());
     }
 
     /**
@@ -660,38 +724,58 @@ public:
     }
 
 private:
-    void copy(const AnyHolder& other)
+    Result<void> copy(const AnyHolder& other) noexcept
     {
         if (other.m_isInPlace)
         {
-            other.getUntypedHolder()->clone(&m_untypedHolder.inPlace);
+            auto cloneResult = other.getUntypedHolder()->clone(&m_untypedHolder.inPlace);
+            if (cloneResult.isError())
+            {
+                return Result<void>::error(cloneResult.getError());
+            }
             m_isInPlace = true;
         }
         else if (other.m_untypedHolder.heap != nullptr)
         {
-            m_untypedHolder.heap = other.getUntypedHolder()->clone(get_allocator_ref());
+            auto cloneResult = other.getUntypedHolder()->clone(get_allocator_ref());
+            if (cloneResult.isError())
+            {
+                return Result<void>::error(cloneResult.getError());
+            }
+            m_untypedHolder.heap = cloneResult.getValue();
         }
         else
         {
             m_untypedHolder.heap = nullptr;
         }
+        return Result<void>::success();
     }
 
-    void copy(NoInitT, const AnyHolder& other)
+    Result<void> copy(NoInitT, const AnyHolder& other) noexcept
     {
         if (other.m_isInPlace)
         {
-            other.getUntypedHolder()->clone(NoInit, &m_untypedHolder.inPlace);
+            auto cloneResult = other.getUntypedHolder()->clone(NoInit, &m_untypedHolder.inPlace);
+            if (cloneResult.isError())
+            {
+                return Result<void>::error(cloneResult.getError());
+            }
             m_isInPlace = true;
         }
         else if (other.m_untypedHolder.heap != nullptr)
         {
-            m_untypedHolder.heap = other.getUntypedHolder()->clone(NoInit, get_allocator_ref());
+            auto cloneResult = other.getUntypedHolder()->clone(NoInit, get_allocator_ref());
+            if (cloneResult.isError())
+            {
+                return Result<void>::error(cloneResult.getError());
+            }
+            m_untypedHolder.heap = cloneResult.getValue();
         }
         else
         {
             m_untypedHolder.heap = nullptr;
         }
+        return Result<void>::success();
     }
 
     void move(AnyHolder&& other)
@@ -768,13 +852,13 @@ private:
     }
 
     template <typename T>
-    detail::HolderBase<T, ALLOC>* createHolder()
+    Result<detail::HolderBase<T, ALLOC>*> createHolder() noexcept
     {
         if (hasHolder())
         {
             if (getUntypedHolder()->isType(detail::TypeIdHolder::get<T>()))
             {
-                return getHolder<T>(detail::has_non_heap_holder<T, ALLOC>());
+                return Result<detail::HolderBase<T, ALLOC>*>::success(getHolder<T>(detail::has_non_heap_holder<T, ALLOC>()));
             }
 
             clearHolder();
@@ -784,35 +868,39 @@ private:
     }
 
     template <typename T>
-    detail::HolderBase<T, ALLOC>* createHolderImpl(std::true_type)
+    Result<detail::HolderBase<T, ALLOC>*> createHolderImpl(std::true_type) noexcept
     {
         detail::NonHeapHolder<T, ALLOC>* holder =
                 detail::NonHeapHolder<T, ALLOC>::create(&m_untypedHolder.inPlace);
         m_isInPlace = true;
-        return holder;
+        return Result<detail::HolderBase<T, ALLOC>*>::success(static_cast<detail::HolderBase<T, ALLOC>*>(holder));
     }
 
     template <typename T>
-    detail::HolderBase<T, ALLOC>* createHolderImpl(std::false_type)
+    Result<detail::HolderBase<T, ALLOC>*> createHolderImpl(std::false_type) noexcept
     {
-        detail::HeapHolder<T, ALLOC>* holder = detail::HeapHolder<T, ALLOC>::create(get_allocator_ref());
+        auto holderResult = detail::HeapHolder<T, ALLOC>::create(get_allocator_ref());
+        if (holderResult.isError())
+        {
+            return Result<detail::HolderBase<T, ALLOC>*>::error(holderResult.getError());
+        }
+        detail::HeapHolder<T, ALLOC>* holder = holderResult.getValue();
         m_untypedHolder.heap = holder;
-        return holder;
+        return Result<detail::HolderBase<T, ALLOC>*>::success(static_cast<detail::HolderBase<T, ALLOC>*>(holder));
     }
 
     template <typename T>
-    void checkType() const
+    Result<void> checkType() const noexcept
     {
+        if (!hasValue())
+        {
+            return Result<void>::error(ErrorCode::EmptyContainer);
+        }
         if (!isType<T>())
         {
-            throwBadType();
+            return Result<void>::error(ErrorCode::TypeMismatch);
         }
-    }
-
-    /** Optimization which increases changes to inline checkType(). */
-    void throwBadType() const
-    {
-        throw CppRuntimeException("Bad type in AnyHolder");
+        return Result<void>::success();
     }
 
     template <typename T>
