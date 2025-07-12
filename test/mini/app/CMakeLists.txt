@@ -3,7 +3,6 @@
 # Source files for the test
 set(SOURCES
     main.cpp
-    MiniTest.cpp
 )
 
 # Create test executable
