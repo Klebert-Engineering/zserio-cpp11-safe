@@ -60,6 +60,7 @@ set(ZSERIO_CPP_RUNTIME_LIB_SRCS
     zserio/DeltaContext.h
     zserio/DeprecatedAttribute.h
     zserio/Enums.h
+    zserio/ErrorCode.h
     zserio/FileUtil.cpp
     zserio/FileUtil.h
     zserio/FloatUtil.cpp
@@ -75,6 +76,7 @@ set(ZSERIO_CPP_RUNTIME_LIB_SRCS
     zserio/ParsingInfo.h
     zserio/PubsubException.h
     zserio/RebindAlloc.h
+    zserio/Result.h
     zserio/RuntimeArch.h
     zserio/SerializeUtil.h
     zserio/ServiceException.h
