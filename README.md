@@ -10,6 +10,28 @@ The C++11 Safe extension is a specialized variant of zserio's C++ support, desig
 
 This extension generates C++ [serialization API](#serialization-api) from the Zserio schema together with [additional API](#additional-api), providing the same functionality as the standard C++ extension but with safety-critical optimizations.
 
+## Repository Structure
+
+```
+safe-main/
+├── src/             # Java extension (compiler plugin)
+├── runtime/         # C++ runtime library
+│   ├── src/         # Runtime source code
+│   └── test/        # Runtime unit tests
+├── freemarker/      # Code generation templates
+├── test/            # Integration tests
+├── cmake/           # CMake modules and helpers
+├── dep/             # Bundled dependencies
+└── build_and_test.bash  # Quick build script
+```
+
+### Key Components
+
+- **Java Extension** (`src/`): Compiler plugin that generates C++ code from Zserio schemas
+- **C++ Runtime** (`runtime/`): Exception-free runtime library for safety-critical systems
+- **Templates** (`freemarker/`): FreeMarker templates that define generated code structure
+- **Build System**: CMake-based with convenient wrapper scripts
+
 ## Building and Using This Extension
 
 This extension provides its own C++ runtime library specifically designed for safety-critical applications. Unlike the standard zserio C++ extension, all components (compiler plugin and runtime) are self-contained within this repository.
@@ -238,6 +260,10 @@ java -jar zserio.jar \
 
 
 ## Content
+
+[Repository Structure](#repository-structure)
+
+&nbsp; &nbsp; &nbsp; &nbsp; [Key Components](#key-components)
 
 [Building and Using This Extension](#building-and-using-this-extension)
 
