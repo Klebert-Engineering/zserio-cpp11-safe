@@ -88,40 +88,41 @@ enum class ErrorCode : uint32_t
     RangeCheckFailed = 58,
     InvalidCondition = 59,
 
-    // Optional/Container Access (60-64)
+    // Optional/Container Access (60-65)
     EmptyOptional = 60,
     InvalidIndex = 61,
     EmptyContainer = 62,
     ContainerFull = 63,
     InvalidIterator = 64,
+    InvalidOperation = 65,
 
-    // File Operations (65-69)
-    FileOpenFailed = 65,
-    FileReadFailed = 66,
-    FileWriteFailed = 67,
-    FileSeekFailed = 68,
-    FileCloseFailed = 69,
+    // File Operations (66-70)
+    FileOpenFailed = 66,
+    FileReadFailed = 67,
+    FileWriteFailed = 68,
+    FileSeekFailed = 69,
+    FileCloseFailed = 70,
 
-    // Database Operations (70-74)
-    SqliteError = 70,
-    DatabaseConnectionFailed = 71,
-    QueryFailed = 72,
-    TransactionFailed = 73,
-    DatabaseLocked = 74,
+    // Database Operations (71-75)
+    SqliteError = 71,
+    DatabaseConnectionFailed = 72,
+    QueryFailed = 73,
+    TransactionFailed = 74,
+    DatabaseLocked = 75,
 
-    // Service/RPC (75-79)
-    ServiceError = 75,
-    MethodNotFound = 76,
-    InvalidRequest = 77,
-    InvalidResponse = 78,
-    ServiceTimeout = 79,
+    // Service/RPC (76-80)
+    ServiceError = 76,
+    MethodNotFound = 77,
+    InvalidRequest = 78,
+    InvalidResponse = 79,
+    ServiceTimeout = 80,
 
-    // Pubsub (80-84)
-    PubsubError = 80,
-    TopicNotFound = 81,
-    SubscriptionFailed = 82,
-    PublishFailed = 83,
-    InvalidMessage = 84
+    // Pubsub (81-85)
+    PubsubError = 81,
+    TopicNotFound = 82,
+    SubscriptionFailed = 83,
+    PublishFailed = 84,
+    InvalidMessage = 85
 };
 
 /**
@@ -278,6 +279,8 @@ inline const char* getErrorMessage(ErrorCode code) noexcept
         return "Container full";
     case ErrorCode::InvalidIterator:
         return "Invalid iterator";
+    case ErrorCode::InvalidOperation:
+        return "Invalid or unsupported operation";
 
     // File Operations
     case ErrorCode::FileOpenFailed:
