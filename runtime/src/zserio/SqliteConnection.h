@@ -3,7 +3,7 @@
 
 #include <memory>
 
-#include "zserio/unsafe/SqliteException.h"
+#include "zserio/Result.h"
 #include "zserio/SqliteFinalizer.h"
 #include "zserio/StringView.h"
 
@@ -82,8 +82,10 @@ public:
      * Executes a single query which doesn't need to return anything - e.g. DML.
      *
      * \param sqlQuery The query string.
+     *
+     * \return Success or error code on failure.
      */
-    void executeUpdate(StringView sqlQuery);
+    Result<void> executeUpdate(StringView sqlQuery) noexcept;
 
     /**
      * Prepares the SQLite statement for the given query.
@@ -92,16 +94,16 @@ public:
      *
      * \param sqlQuery The query string.
      *
-     * \return Prepared SQLite statement.
+     * \return Result containing prepared SQLite statement or error code on failure.
      */
-    sqlite3_stmt* prepareStatement(StringView sqlQuery);
+    Result<sqlite3_stmt*> prepareStatement(StringView sqlQuery) noexcept;
 
     /**
      * Starts a new transaction if a transaction is not already started.
      *
-     * \return True when the new transaction was started. False when a transaction is already started.
+     * \return Result containing true when the new transaction was started, false when a transaction is already started, or error code on failure.
      */
-    bool startTransaction();
+    Result<bool> startTransaction() noexcept;
 
     /**
      * Terminates the current transaction.
@@ -110,16 +112,21 @@ public:
      * which uses transactions.
      *
      * \code{.cpp}
-     * bool wasTransactionStarted = connection.startTransaction(); // transaction may be already started
+     * auto result = connection.startTransaction(); // transaction may be already started
+     * if (result.isError()) return result.getError();
+     * bool wasTransactionStarted = result.getValue();
      * // execute queries
      * // ...
      * // terminates the transaction only if it was started by the corresponding startTransaction call.
-     * connection.endTransaction(wasTransactionStarted);
+     * auto endResult = connection.endTransaction(wasTransactionStarted);
+     * if (endResult.isError()) return endResult.getError();
      * \endcode
      *
      * \param wasTransactionStarted When false, the call does actually nothing.
+     *
+     * \return Success or error code on failure.
      */
-    void endTransaction(bool wasTransactionStarted);
+    Result<void> endTransaction(bool wasTransactionStarted) noexcept;
 
 private:
     sqlite3* m_connection;
@@ -158,49 +165,60 @@ inline sqlite3* SqliteConnection::getConnection()
     return m_connection;
 }
 
-inline void SqliteConnection::executeUpdate(StringView sqlQuery)
+inline Result<void> SqliteConnection::executeUpdate(StringView sqlQuery) noexcept
 {
-    std::unique_ptr<sqlite3_stmt, SqliteFinalizer> statement(prepareStatement(sqlQuery));
+    auto statementResult = prepareStatement(sqlQuery);
+    if (statementResult.isError())
+    {
+        return Result<void>::error(statementResult.getError());
+    }
+    
+    std::unique_ptr<sqlite3_stmt, SqliteFinalizer> statement(statementResult.getValue());
     int result = sqlite3_step(statement.get());
     if (result != SQLITE_DONE)
     {
-        throw SqliteException("SqliteConnection::executeUpdate(): sqlite3_step failed: ")
-                << SqliteErrorCode(result);
+        return Result<void>::error(ErrorCode::SqliteError);
     }
+    
+    return Result<void>::success();
 }
 
-inline sqlite3_stmt* SqliteConnection::prepareStatement(StringView sqlQuery)
+inline Result<sqlite3_stmt*> SqliteConnection::prepareStatement(StringView sqlQuery) noexcept
 {
     sqlite3_stmt* statement = nullptr;
     const int result = sqlite3_prepare_v2(
             m_connection, sqlQuery.data(), static_cast<int>(sqlQuery.size()), &statement, nullptr);
     if (result != SQLITE_OK)
     {
-        throw SqliteException("SqliteConnection::prepareStatement(): sqlite3_prepare_v2() failed: ")
-                << SqliteErrorCode(result);
+        return Result<sqlite3_stmt*>::error(ErrorCode::SqliteError);
     }
 
-    return statement;
+    return Result<sqlite3_stmt*>::success(statement);
 }
 
-inline bool SqliteConnection::startTransaction()
+inline Result<bool> SqliteConnection::startTransaction() noexcept
 {
     bool wasTransactionStarted = false;
     if (sqlite3_get_autocommit(m_connection) != 0)
     {
-        executeUpdate("BEGIN;");
+        auto result = executeUpdate("BEGIN;");
+        if (result.isError())
+        {
+            return Result<bool>::error(result.getError());
+        }
         wasTransactionStarted = true;
     }
 
-    return wasTransactionStarted;
+    return Result<bool>::success(wasTransactionStarted);
 }
 
-inline void SqliteConnection::endTransaction(bool wasTransactionStarted)
+inline Result<void> SqliteConnection::endTransaction(bool wasTransactionStarted) noexcept
 {
     if (wasTransactionStarted)
     {
-        executeUpdate("COMMIT;");
+        return executeUpdate("COMMIT;");
     }
+    return Result<void>::success();
 }
 
 } // namespace zserio
