@@ -2,7 +2,7 @@
 #include <limits>
 
 #include "zserio/BitSizeOfCalculator.h"
-#include "zserio/CppRuntimeException.h"
+#include "zserio/unsafe/CppRuntimeException.h"
 
 namespace zserio
 {

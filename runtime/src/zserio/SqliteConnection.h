@@ -3,7 +3,7 @@
 
 #include <memory>
 
-#include "zserio/SqliteException.h"
+#include "zserio/unsafe/SqliteException.h"
 #include "zserio/SqliteFinalizer.h"
 #include "zserio/StringView.h"
 

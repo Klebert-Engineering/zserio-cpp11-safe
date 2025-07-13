@@ -2,7 +2,7 @@
 #include <array>
 #include <cstring>
 
-#include "zserio/CppRuntimeException.h"
+#include "zserio/unsafe/CppRuntimeException.h"
 
 namespace zserio
 {

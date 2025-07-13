@@ -7,7 +7,7 @@
 
 #include "zserio/AnyHolder.h"
 #include "zserio/BitBuffer.h"
-#include "zserio/CppRuntimeException.h"
+#include "zserio/unsafe/CppRuntimeException.h"
 #include "zserio/unsafe/ITypeInfo.h"
 
 namespace zserio

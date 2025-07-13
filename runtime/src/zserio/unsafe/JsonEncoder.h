@@ -3,7 +3,7 @@
 
 #include <type_traits>
 
-#include "zserio/CppRuntimeException.h"
+#include "zserio/unsafe/CppRuntimeException.h"
 #include "zserio/String.h"
 #include "zserio/StringConvertUtil.h"
 #include "zserio/StringView.h"

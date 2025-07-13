@@ -6,7 +6,7 @@
 #include <functional>
 #include <limits>
 
-#include "zserio/CppRuntimeException.h"
+#include "zserio/unsafe/CppRuntimeException.h"
 #include "zserio/unsafe/IReflectable.h"
 #include "zserio/unsafe/ITypeInfo.h"
 #include "zserio/StringView.h"

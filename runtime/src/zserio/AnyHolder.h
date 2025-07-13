@@ -5,7 +5,7 @@
 #include <type_traits>
 
 #include "zserio/AllocatorHolder.h"
-#include "zserio/CppRuntimeException.h"
+#include "zserio/unsafe/CppRuntimeException.h"
 #include "zserio/NoInit.h"
 #include "zserio/OptionalHolder.h"
 #include "zserio/RebindAlloc.h"

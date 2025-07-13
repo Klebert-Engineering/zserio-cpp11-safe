@@ -6,7 +6,7 @@
 #include <memory>
 
 #include "zserio/AnyHolder.h"
-#include "zserio/CppRuntimeException.h"
+#include "zserio/unsafe/CppRuntimeException.h"
 #include "zserio/unsafe/JsonDecoder.h"
 #include "zserio/Types.h"
 

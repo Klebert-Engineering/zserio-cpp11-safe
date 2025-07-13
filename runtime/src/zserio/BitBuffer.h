@@ -6,7 +6,7 @@
 #include <type_traits>
 #include <vector>
 
-#include "zserio/CppRuntimeException.h"
+#include "zserio/unsafe/CppRuntimeException.h"
 #include "zserio/HashCodeUtil.h"
 #include "zserio/Result.h"
 #include "zserio/Span.h"

@@ -7,7 +7,7 @@
 #include <memory>
 #include <utility>
 
-#include "zserio/CppRuntimeException.h"
+#include "zserio/unsafe/CppRuntimeException.h"
 #include "zserio/RebindAlloc.h"
 #include "zserio/String.h"
 #include "zserio/StringConvertUtil.h"

@@ -1,5 +1,5 @@
 #include "zserio/BitFieldUtil.h"
-#include "zserio/CppRuntimeException.h"
+#include "zserio/unsafe/CppRuntimeException.h"
 
 namespace zserio
 {

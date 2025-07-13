@@ -1,7 +1,7 @@
 #include <cstddef>
 #include <limits>
 
-#include "zserio/CppRuntimeException.h"
+#include "zserio/unsafe/CppRuntimeException.h"
 #include "zserio/RuntimeArch.h"
 #include "zserio/SizeConvertUtil.h"
 
