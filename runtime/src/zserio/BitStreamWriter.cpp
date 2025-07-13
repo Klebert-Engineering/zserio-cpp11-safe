@@ -400,32 +400,62 @@ Result<void> BitStreamWriter::writeSignedBits64(int64_t data, uint8_t numBits) n
 
 Result<void> BitStreamWriter::writeVarInt64(int64_t data) noexcept
 {
-    return writeSignedVarNum(data, 8, zserio::bitSizeOfVarInt64(data) / 8);
+    auto sizeResult = zserio::bitSizeOfVarInt64(data);
+    if (sizeResult.isError())
+    {
+        return Result<void>::error(sizeResult.getError());
+    }
+    return writeSignedVarNum(data, 8, sizeResult.getValue() / 8);
 }
 
 Result<void> BitStreamWriter::writeVarInt32(int32_t data) noexcept
 {
-    return writeSignedVarNum(data, 4, zserio::bitSizeOfVarInt32(data) / 8);
+    auto sizeResult = zserio::bitSizeOfVarInt32(data);
+    if (sizeResult.isError())
+    {
+        return Result<void>::error(sizeResult.getError());
+    }
+    return writeSignedVarNum(data, 4, sizeResult.getValue() / 8);
 }
 
 Result<void> BitStreamWriter::writeVarInt16(int16_t data) noexcept
 {
-    return writeSignedVarNum(data, 2, zserio::bitSizeOfVarInt16(data) / 8);
+    auto sizeResult = zserio::bitSizeOfVarInt16(data);
+    if (sizeResult.isError())
+    {
+        return Result<void>::error(sizeResult.getError());
+    }
+    return writeSignedVarNum(data, 2, sizeResult.getValue() / 8);
 }
 
 Result<void> BitStreamWriter::writeVarUInt64(uint64_t data) noexcept
 {
-    return writeUnsignedVarNum(data, 8, zserio::bitSizeOfVarUInt64(data) / 8);
+    auto sizeResult = zserio::bitSizeOfVarUInt64(data);
+    if (sizeResult.isError())
+    {
+        return Result<void>::error(sizeResult.getError());
+    }
+    return writeUnsignedVarNum(data, 8, sizeResult.getValue() / 8);
 }
 
 Result<void> BitStreamWriter::writeVarUInt32(uint32_t data) noexcept
 {
-    return writeUnsignedVarNum(data, 4, zserio::bitSizeOfVarUInt32(data) / 8);
+    auto sizeResult = zserio::bitSizeOfVarUInt32(data);
+    if (sizeResult.isError())
+    {
+        return Result<void>::error(sizeResult.getError());
+    }
+    return writeUnsignedVarNum(data, 4, sizeResult.getValue() / 8);
 }
 
 Result<void> BitStreamWriter::writeVarUInt16(uint16_t data) noexcept
 {
-    return writeUnsignedVarNum(data, 2, zserio::bitSizeOfVarUInt16(data) / 8);
+    auto sizeResult = zserio::bitSizeOfVarUInt16(data);
+    if (sizeResult.isError())
+    {
+        return Result<void>::error(sizeResult.getError());
+    }
+    return writeUnsignedVarNum(data, 2, sizeResult.getValue() / 8);
 }
 
 Result<void> BitStreamWriter::writeVarInt(int64_t data) noexcept
@@ -436,18 +466,33 @@ Result<void> BitStreamWriter::writeVarInt(int64_t data) noexcept
     }
     else
     {
-        return writeSignedVarNum(data, 9, zserio::bitSizeOfVarInt(data) / 8);
+        auto sizeResult = zserio::bitSizeOfVarInt(data);
+        if (sizeResult.isError())
+        {
+            return Result<void>::error(sizeResult.getError());
+        }
+        return writeSignedVarNum(data, 9, sizeResult.getValue() / 8);
     }
 }
 
 Result<void> BitStreamWriter::writeVarUInt(uint64_t data) noexcept
 {
-    return writeUnsignedVarNum(data, 9, zserio::bitSizeOfVarUInt(data) / 8);
+    auto sizeResult = zserio::bitSizeOfVarUInt(data);
+    if (sizeResult.isError())
+    {
+        return Result<void>::error(sizeResult.getError());
+    }
+    return writeUnsignedVarNum(data, 9, sizeResult.getValue() / 8);
 }
 
 Result<void> BitStreamWriter::writeVarSize(uint32_t data) noexcept
 {
-    return writeUnsignedVarNum(data, 5, zserio::bitSizeOfVarSize(data) / 8);
+    auto sizeResult = zserio::bitSizeOfVarSize(data);
+    if (sizeResult.isError())
+    {
+        return Result<void>::error(sizeResult.getError());
+    }
+    return writeUnsignedVarNum(data, 5, sizeResult.getValue() / 8);
 }
 
 Result<void> BitStreamWriter::writeFloat16(float data) noexcept
