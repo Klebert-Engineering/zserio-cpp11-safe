@@ -549,6 +549,33 @@ safe subset of runtime functionality identified in Phase 1.
 
 ### Key Design Decisions
 
+#### Result<T> Type Requirements
+
+**CRITICAL**: Any type T used with Result<T> must support move semantics. This is a fundamental requirement because:
+
+1. **Result<T> is move-only**: To ensure efficient error propagation without copying, Result<T> itself uses move-only semantics
+2. **No hidden copies**: Move semantics prevent accidental expensive copies during error propagation
+3. **Clear ownership**: Move semantics make ownership transfer explicit in the API
+
+Types that need move constructor/assignment enabled:
+- BitStreamReader (move constructor and assignment)
+- BitStreamWriter (move constructor and assignment) 
+- Any generated structures returned by factory methods
+- Custom container types used in Result<T>
+
+Example fix for BitStreamWriter:
+```cpp
+// Before: Move operations were deleted
+BitStreamWriter(BitStreamWriter&&) = delete;
+BitStreamWriter& operator=(BitStreamWriter&&) = delete;
+
+// After: Enable move operations for Result<T> compatibility
+BitStreamWriter(BitStreamWriter&&) = default;
+BitStreamWriter& operator=(BitStreamWriter&&) = default;
+```
+
+This requirement discovered during implementation ensures all types work seamlessly with the Result<T> pattern.
+
 #### Single API Approach - No Dual Support
 
 The safe runtime provides **only** Result<T>-based APIs, with no exception-throwing variants. This critical decision:
