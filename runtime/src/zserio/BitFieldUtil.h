@@ -3,6 +3,7 @@
 
 #include <cstddef>
 
+#include "zserio/Result.h"
 #include "zserio/Types.h"
 
 namespace zserio
@@ -14,19 +15,19 @@ namespace zserio
  * \param length Length of the bit field.
  * \param isSigned Whether the bit field is signed.
  *
- * \return Lower bound for the bit field.
+ * \return Result containing lower bound for the bit field or error code on failure.
  */
-int64_t getBitFieldLowerBound(size_t length, bool isSigned);
+Result<int64_t> getBitFieldLowerBound(size_t length, bool isSigned) noexcept;
 
 /**
- * Calculates lower bound for the given bit field.
+ * Calculates upper bound for the given bit field.
  *
  * \param length Length of the bit field.
  * \param isSigned Whether the bit field is signed.
  *
- * \return Upper bound for the bit field.
+ * \return Result containing upper bound for the bit field or error code on failure.
  */
-uint64_t getBitFieldUpperBound(size_t length, bool isSigned);
+Result<uint64_t> getBitFieldUpperBound(size_t length, bool isSigned) noexcept;
 
 } // namespace zserio
 
