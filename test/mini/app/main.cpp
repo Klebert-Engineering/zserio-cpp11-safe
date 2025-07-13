@@ -36,7 +36,7 @@ int main() {
     for (uint8_t i = 0; i < 3; ++i) {
       minizs::Inner inner(allocator);
       zserio::pmr::string key("item_", allocator);
-      key += std::to_string(i);
+      key += std::to_string(i).c_str();
       inner.setKey(key);
       inner.setValue(10 + i * 5); // values: 10, 15, 20
       inners.push_back(inner);
@@ -107,7 +107,7 @@ int main() {
 
       // Verify the data matches
       zserio::pmr::string expected("item_", allocator);
-      expected += std::to_string(i);
+      expected += std::to_string(i).c_str();
       if (inner.getKey() != expected ||
           inner.getValue() != 10 + i * 5) {
         dataMatches = false;

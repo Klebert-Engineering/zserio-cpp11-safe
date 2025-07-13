@@ -44,11 +44,6 @@ Inner::Inner(const allocator_type& allocator) noexcept :
 {
 }
 
-Inner::Inner(::zserio::BitStreamReader& in, const allocator_type& allocator) :
-        m_key_(readKey(in, allocator)),
-        m_value_(readValue(in))
-{
-}
 
 Inner::Inner(::zserio::PropagateAllocatorT,
         const Inner& other, const allocator_type& allocator) :

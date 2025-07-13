@@ -52,8 +52,6 @@ public:
         m_inner_ = ZserioArrayType_inner(::std::forward<ZSERIO_T_inner>(inner_));
     }
 
-    explicit Outer(::zserio::BitStreamReader& in,
-            uint8_t numOfInners_, const allocator_type& allocator = allocator_type());
 
     ~Outer() = default;
 

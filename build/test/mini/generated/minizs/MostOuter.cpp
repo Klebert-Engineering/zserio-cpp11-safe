@@ -48,18 +48,6 @@ MostOuter::MostOuter(const allocator_type& allocator) noexcept :
 {
 }
 
-MostOuter::MostOuter(::zserio::BitStreamReader& in, const allocator_type& allocator) :
-        m_areChildrenInitialized(false),
-        m_numOfInner_(readNumOfInner(in)),
-        m_outer_(allocator)
-{
-    auto outerResult = readOuter(in, allocator);
-    if (outerResult.isSuccess())
-    {
-        m_outer_ = outerResult.moveValue();
-        m_areChildrenInitialized = true;
-    }
-}
 
 MostOuter::MostOuter(const MostOuter& other) :
         m_numOfInner_(other.m_numOfInner_),

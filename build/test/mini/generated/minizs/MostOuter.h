@@ -55,7 +55,6 @@ public:
         m_outer_ = ::std::forward<ZSERIO_T_outer>(outer_);
     }
 
-    explicit MostOuter(::zserio::BitStreamReader& in, const allocator_type& allocator = allocator_type());
 
     ~MostOuter() = default;
 

@@ -51,8 +51,6 @@ public:
         m_value_ = value_;
     }
 
-    explicit Inner(::zserio::BitStreamReader& in, const allocator_type& allocator = allocator_type());
-
     ~Inner() = default;
 
     Inner(const Inner&) = default;

@@ -38,13 +38,6 @@ Outer::Outer(const allocator_type& allocator) noexcept :
 {
 }
 
-Outer::Outer(::zserio::BitStreamReader& in,
-        uint8_t numOfInners_, const allocator_type& allocator) :
-        m_numOfInners_(numOfInners_),
-        m_isInitialized(true),
-        m_inner_(readInner(in, allocator))
-{
-}
 
 Outer::Outer(const Outer& other) :
         m_inner_(other.m_inner_)
