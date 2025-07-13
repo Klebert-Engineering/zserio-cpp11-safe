@@ -13,6 +13,8 @@
 #include "zserio/BitStreamReader.h"
 #include "zserio/BitStreamWriter.h"
 #include "zserio/FileUtil.h"
+#include "zserio/Result.h"
+#include "zserio/ErrorCode.h"
 #include "zserio/Traits.h"
 #include "zserio/Vector.h"
 
@@ -23,37 +25,39 @@ namespace detail
 {
 
 template <typename T>
-void initializeChildrenImpl(std::true_type, T& object)
+Result<void> initializeChildrenImpl(std::true_type, T& object) noexcept
 {
-    object.initializeChildren();
+    return object.initializeChildren();
 }
 
 template <typename T>
-void initializeChildrenImpl(std::false_type, T&)
-{}
+Result<void> initializeChildrenImpl(std::false_type, T&) noexcept
+{
+    return Result<void>::success();
+}
 
 template <typename T>
-void initializeChildren(T& object)
+Result<void> initializeChildren(T& object) noexcept
 {
-    initializeChildrenImpl(has_initialize_children<T>(), object);
+    return initializeChildrenImpl(has_initialize_children<T>(), object);
 }
 
 template <typename T, typename... ARGS>
-void initializeImpl(std::true_type, T& object, ARGS&&... arguments)
+Result<void> initializeImpl(std::true_type, T& object, ARGS&&... arguments) noexcept
 {
-    object.initialize(std::forward<ARGS>(arguments)...);
+    return object.initialize(std::forward<ARGS>(arguments)...);
 }
 
 template <typename T>
-void initializeImpl(std::false_type, T& object)
+Result<void> initializeImpl(std::false_type, T& object) noexcept
 {
-    initializeChildren(object);
+    return initializeChildren(object);
 }
 
 template <typename T, typename... ARGS>
-void initialize(T& object, ARGS&&... arguments)
+Result<void> initialize(T& object, ARGS&&... arguments) noexcept
 {
-    initializeImpl(has_initialize<T>(), object, std::forward<ARGS>(arguments)...);
+    return initializeImpl(has_initialize<T>(), object, std::forward<ARGS>(arguments)...);
 }
 
 template <typename T, typename = void>
@@ -70,13 +74,30 @@ struct allocator_chooser<T, detail::void_t<typename T::allocator_type>>
 
 // This implementation needs to be in detail because old MSVC compiler 2015 has problems with calling overload.
 template <typename T, typename ALLOC, typename... ARGS>
-BasicBitBuffer<ALLOC> serialize(T& object, const ALLOC& allocator, ARGS&&... arguments)
+Result<BasicBitBuffer<ALLOC>> serialize(T& object, const ALLOC& allocator, ARGS&&... arguments) noexcept
 {
-    detail::initialize(object, std::forward<ARGS>(arguments)...);
-    BasicBitBuffer<ALLOC> bitBuffer(object.initializeOffsets(), allocator);
+    // Initialize the object
+    auto initResult = detail::initialize(object, std::forward<ARGS>(arguments)...);
+    if (initResult.isError())
+    {
+        return Result<BasicBitBuffer<ALLOC>>::error(initResult.getError());
+    }
+    
+    // Get bit size - assuming initializeOffsets returns size_t
+    const size_t bitSize = object.initializeOffsets();
+    
+    // Create bit buffer
+    BasicBitBuffer<ALLOC> bitBuffer(bitSize, allocator);
     BitStreamWriter writer(bitBuffer);
-    object.write(writer);
-    return bitBuffer;
+    
+    // Write object
+    auto writeResult = object.write(writer);
+    if (writeResult.isError())
+    {
+        return Result<BasicBitBuffer<ALLOC>>::error(writeResult.getError());
+    }
+    
+    return Result<BasicBitBuffer<ALLOC>>::success(std::move(bitBuffer));
 }
 
 } // namespace detail
@@ -94,21 +115,22 @@ BasicBitBuffer<ALLOC> serialize(T& object, const ALLOC& allocator, ARGS&&... arg
  *
  *     const zserio::pmr::PolymorphicAllocator<> allocator;
  *     SomeZserioObject object(allocator);
- *     const zserio::BasicBitBuffer<zserio::pmr::PolymorphicAllocator<>> bitBuffer =
- *             zserio::serialize(object, allocator);
+ *     auto bufferResult = zserio::serialize(object, allocator);
+ *     if (bufferResult.isError()) {
+ *         // handle error
+ *     }
+ *     const auto& bitBuffer = bufferResult.getValue();
  * \endcode
  *
  * \param object Generated object to serialize.
  * \param allocator Allocator to use to allocate bit buffer.
  * \param arguments Object's actual parameters for initialize() method (optional).
  *
- * \return Bit buffer containing the serialized object.
- *
- * \throw CppRuntimeException When serialization fails.
+ * \return Result containing bit buffer with the serialized object, or error code.
  */
 template <typename T, typename ALLOC, typename... ARGS,
         typename std::enable_if<!std::is_enum<T>::value && is_allocator<ALLOC>::value, int>::type = 0>
-BasicBitBuffer<ALLOC> serialize(T& object, const ALLOC& allocator, ARGS&&... arguments)
+Result<BasicBitBuffer<ALLOC>> serialize(T& object, const ALLOC& allocator, ARGS&&... arguments) noexcept
 {
     return detail::serialize(object, allocator, std::forward<ARGS>(arguments)...);
 }
@@ -124,21 +146,23 @@ BasicBitBuffer<ALLOC> serialize(T& object, const ALLOC& allocator, ARGS&&... arg
  *     #include <zserio/SerializeUtil.h>
  *
  *     SomeZserioObject object;
- *     const zserio::BitBuffer bitBuffer = zserio::serialize(object);
+ *     auto bufferResult = zserio::serialize(object);
+ *     if (bufferResult.isError()) {
+ *         // handle error
+ *     }
+ *     const auto& bitBuffer = bufferResult.getValue();
  * \endcode
  *
  * \param object Generated object to serialize.
  * \param arguments Object's actual parameters for initialize() method (optional).
  *
- * \return Bit buffer containing the serialized object.
- *
- * \throw CppRuntimeException When serialization fails.
+ * \return Result containing bit buffer with the serialized object, or error code.
  */
 template <typename T, typename ALLOC = typename detail::allocator_chooser<T>::type, typename... ARGS,
         typename std::enable_if<!std::is_enum<T>::value &&
                         !is_first_allocator<typename std::decay<ARGS>::type...>::value,
                 int>::type = 0>
-BasicBitBuffer<ALLOC> serialize(T& object, ARGS&&... arguments)
+Result<BasicBitBuffer<ALLOC>> serialize(T& object, ARGS&&... arguments) noexcept
 {
     return detail::serialize(object, ALLOC(), std::forward<ARGS>(arguments)...);
 }
@@ -151,24 +175,31 @@ BasicBitBuffer<ALLOC> serialize(T& object, ARGS&&... arguments)
  *     #include <zserio/SerializeUtil.h>
  *
  *     const SomeZserioEnum enumValue = SomeZserioEnum::SomeEnumValue;
- *     const zserio::BitBuffer bitBuffer = zserio::serialize(enumValue);
+ *     auto bufferResult = zserio::serialize(enumValue);
+ *     if (bufferResult.isError()) {
+ *         // handle error
+ *     }
+ *     const auto& bitBuffer = bufferResult.getValue();
  * \endcode
  *
  * \param enumValue Generated enum to serialize.
  * \param allocator Allocator to use to allocate bit buffer.
  *
- * \return Bit buffer containing the serialized enum.
- *
- * \throw CppRuntimeException When serialization fails.
+ * \return Result containing bit buffer with the serialized enum, or error code.
  */
 template <typename T, typename ALLOC = std::allocator<uint8_t>,
         typename std::enable_if<std::is_enum<T>::value, int>::type = 0>
-BasicBitBuffer<ALLOC> serialize(T enumValue, const ALLOC& allocator = ALLOC())
+Result<BasicBitBuffer<ALLOC>> serialize(T enumValue, const ALLOC& allocator = ALLOC()) noexcept
 {
-    BasicBitBuffer<ALLOC> bitBuffer(zserio::bitSizeOf(enumValue), allocator);
+    const size_t bitSize = zserio::bitSizeOf(enumValue);
+    BasicBitBuffer<ALLOC> bitBuffer(bitSize, allocator);
     BitStreamWriter writer(bitBuffer);
-    zserio::write(writer, enumValue);
-    return bitBuffer;
+    auto writeResult = zserio::write(writer, enumValue);
+    if (writeResult.isError())
+    {
+        return Result<BasicBitBuffer<ALLOC>>::error(writeResult.getError());
+    }
+    return Result<BasicBitBuffer<ALLOC>>::success(std::move(bitBuffer));
 }
 
 /**
@@ -179,23 +210,28 @@ BasicBitBuffer<ALLOC> serialize(T enumValue, const ALLOC& allocator = ALLOC())
  *     #include <zserio/SerializeUtil.h>
  *
  *     SomeZserioObject object;
- *     const zserio::BitBuffer bitBuffer = zserio::serialize(object);
- *     SomeZserioObject readObject = zserio::deserialize<SomeZserioObject>(bitBuffer);
+ *     auto bufferResult = zserio::serialize(object);
+ *     if (bufferResult.isError()) {
+ *         // handle error
+ *     }
+ *     auto readObjectResult = zserio::deserialize<SomeZserioObject>(bufferResult.getValue());
+ *     if (readObjectResult.isError()) {
+ *         // handle error
+ *     }
+ *     SomeZserioObject readObject = readObjectResult.moveValue();
  * \endcode
  *
  * \param bitBuffer Bit buffer to use.
  * \param arguments Object's actual parameters together with allocator for object's read constructor (optional).
  *
- * \return Generated object created from the given bit buffer.
- *
- * \throw CppRuntimeException When deserialization fails.
+ * \return Result containing generated object created from the given bit buffer, or error code.
  */
 template <typename T, typename ALLOC, typename... ARGS>
-typename std::enable_if<!std::is_enum<T>::value, T>::type deserialize(
-        const BasicBitBuffer<ALLOC>& bitBuffer, ARGS&&... arguments)
+typename std::enable_if<!std::is_enum<T>::value, Result<T>>::type deserialize(
+        const BasicBitBuffer<ALLOC>& bitBuffer, ARGS&&... arguments) noexcept
 {
     BitStreamReader reader(bitBuffer);
-    return T(reader, std::forward<ARGS>(arguments)...);
+    return T::deserialize(reader, std::forward<ARGS>(arguments)...);
 }
 
 /**
@@ -206,18 +242,24 @@ typename std::enable_if<!std::is_enum<T>::value, T>::type deserialize(
  *     #include <zserio/SerializeUtil.h>
  *
  *     const SomeZserioEnum enumValue = SomeZserioEnum::SomeEnumValue;
- *     const zserio::BitBuffer bitBuffer = zserio::serialize(enumValue);
- *     const SomeZserioEnum readEnumValue = zserio::deserialize<DummyEnum>(bitBuffer);
+ *     auto bufferResult = zserio::serialize(enumValue);
+ *     if (bufferResult.isError()) {
+ *         // handle error
+ *     }
+ *     auto readEnumResult = zserio::deserialize<DummyEnum>(bufferResult.getValue());
+ *     if (readEnumResult.isError()) {
+ *         // handle error
+ *     }
+ *     const SomeZserioEnum readEnumValue = readEnumResult.getValue();
  * \endcode
  *
  * \param bitBuffer Bit buffer to use.
  *
- * \return Generated enum created from the given bit buffer.
- *
- * \throw CppRuntimeException When deserialization fails.
+ * \return Result containing generated enum created from the given bit buffer, or error code.
  */
 template <typename T, typename ALLOC>
-typename std::enable_if<std::is_enum<T>::value, T>::type deserialize(const BasicBitBuffer<ALLOC>& bitBuffer)
+typename std::enable_if<std::is_enum<T>::value, Result<T>>::type deserialize(
+        const BasicBitBuffer<ALLOC>& bitBuffer) noexcept
 {
     BitStreamReader reader(bitBuffer);
     return zserio::read<T>(reader);
@@ -236,26 +278,30 @@ typename std::enable_if<std::is_enum<T>::value, T>::type deserialize(const Basic
  *
  *     const zserio::pmr::PolymorphicAllocator<> allocator;
  *     SomeZserioObject object(allocator);
- *     const zserio::vector<uint8_t, zserio::pmr::PolymorphicAllocator<>> buffer =
- *             zserio::serializeToBytes(object, allocator);
+ *     auto bufferResult = zserio::serializeToBytes(object, allocator);
+ *     if (bufferResult.isError()) {
+ *         // handle error
+ *     }
+ *     const auto& buffer = bufferResult.getValue();
  * \endcode
  *
  * \param object Generated object to serialize.
  * \param allocator Allocator to use to allocate vector.
  * \param arguments Object's actual parameters for initialize() method (optional).
  *
- * \return Vector of bytes containing the serialized object.
- *
- * \throw CppRuntimeException When serialization fails.
+ * \return Result containing vector of bytes with the serialized object, or error code.
  */
 template <typename T, typename ALLOC, typename... ARGS,
         typename std::enable_if<!std::is_enum<T>::value && is_allocator<ALLOC>::value, int>::type = 0>
-vector<uint8_t, ALLOC> serializeToBytes(T& object, const ALLOC& allocator, ARGS&&... arguments)
+Result<vector<uint8_t, ALLOC>> serializeToBytes(T& object, const ALLOC& allocator, ARGS&&... arguments) noexcept
 {
-    const BasicBitBuffer<ALLOC> bitBuffer =
-            detail::serialize(object, allocator, std::forward<ARGS>(arguments)...);
+    auto bitBufferResult = detail::serialize(object, allocator, std::forward<ARGS>(arguments)...);
+    if (bitBufferResult.isError())
+    {
+        return Result<vector<uint8_t, ALLOC>>::error(bitBufferResult.getError());
+    }
 
-    return bitBuffer.getBytes();
+    return Result<vector<uint8_t, ALLOC>>::success(bitBufferResult.getValue().getBytes());
 }
 
 /**
@@ -272,26 +318,31 @@ vector<uint8_t, ALLOC> serializeToBytes(T& object, const ALLOC& allocator, ARGS&
  *     #include <zserio/SerializeUtil.h>
  *
  *     SomeZserioObject object;
- *     const zserio::vector<uint8_t> buffer = zserio::serializeToBytes(object);
+ *     auto bufferResult = zserio::serializeToBytes(object);
+ *     if (bufferResult.isError()) {
+ *         // handle error
+ *     }
+ *     const auto& buffer = bufferResult.getValue();
  * \endcode
  *
  * \param object Generated object to serialize.
  * \param arguments Object's actual parameters for initialize() method (optional).
  *
- * \return Vector of bytes containing the serialized object.
- *
- * \throw CppRuntimeException When serialization fails.
+ * \return Result containing vector of bytes with the serialized object, or error code.
  */
 template <typename T, typename ALLOC = typename detail::allocator_chooser<T>::type, typename... ARGS,
         typename std::enable_if<!std::is_enum<T>::value &&
                         !is_first_allocator<typename std::decay<ARGS>::type...>::value,
                 int>::type = 0>
-vector<uint8_t, ALLOC> serializeToBytes(T& object, ARGS&&... arguments)
+Result<vector<uint8_t, ALLOC>> serializeToBytes(T& object, ARGS&&... arguments) noexcept
 {
-    const BasicBitBuffer<ALLOC> bitBuffer =
-            detail::serialize(object, ALLOC(), std::forward<ARGS>(arguments)...);
+    auto bitBufferResult = detail::serialize(object, ALLOC(), std::forward<ARGS>(arguments)...);
+    if (bitBufferResult.isError())
+    {
+        return Result<vector<uint8_t, ALLOC>>::error(bitBufferResult.getError());
+    }
 
-    return bitBuffer.getBytes();
+    return Result<vector<uint8_t, ALLOC>>::success(bitBufferResult.getValue().getBytes());
 }
 
 /**
@@ -302,23 +353,29 @@ vector<uint8_t, ALLOC> serializeToBytes(T& object, ARGS&&... arguments)
  *     #include <zserio/SerializeUtil.h>
  *
  *     const SomeZserioEnum enumValue = SomeZserioEnum::SomeEnumValue;
- *     const zserio::vector<uint8_t> buffer = zserio::serializeToBytes(enumValue);
+ *     auto bufferResult = zserio::serializeToBytes(enumValue);
+ *     if (bufferResult.isError()) {
+ *         // handle error
+ *     }
+ *     const auto& buffer = bufferResult.getValue();
  * \endcode
  *
  * \param enumValue Generated enum to serialize.
  * \param allocator Allocator to use to allocate vector.
  *
- * \return Vector of bytes containing the serialized enum.
- *
- * \throw CppRuntimeException When serialization fails.
+ * \return Result containing vector of bytes with the serialized enum, or error code.
  */
 template <typename T, typename ALLOC = std::allocator<uint8_t>,
         typename std::enable_if<std::is_enum<T>::value, int>::type = 0>
-vector<uint8_t, ALLOC> serializeToBytes(T enumValue, const ALLOC& allocator = ALLOC())
+Result<vector<uint8_t, ALLOC>> serializeToBytes(T enumValue, const ALLOC& allocator = ALLOC()) noexcept
 {
-    const BasicBitBuffer<ALLOC> bitBuffer = serialize(enumValue, allocator);
+    auto bitBufferResult = serialize(enumValue, allocator);
+    if (bitBufferResult.isError())
+    {
+        return Result<vector<uint8_t, ALLOC>>::error(bitBufferResult.getError());
+    }
 
-    return bitBuffer.getBytes();
+    return Result<vector<uint8_t, ALLOC>>::success(bitBufferResult.getValue().getBytes());
 }
 
 /**
@@ -333,23 +390,28 @@ vector<uint8_t, ALLOC> serializeToBytes(T enumValue, const ALLOC& allocator = AL
  *     #include <zserio/SerializeUtil.h>
  *
  *     SomeZserioObject object;
- *     const zserio::vector<uint8_t> buffer = zserio::serializeToBytes(object);
- *     SomeZserioObject readObject = zserio::deserializeFromBytes<SomeZserioObject>(buffer);
+ *     auto bufferResult = zserio::serializeToBytes(object);
+ *     if (bufferResult.isError()) {
+ *         // handle error
+ *     }
+ *     auto readObjectResult = zserio::deserializeFromBytes<SomeZserioObject>(bufferResult.getValue());
+ *     if (readObjectResult.isError()) {
+ *         // handle error
+ *     }
+ *     SomeZserioObject readObject = readObjectResult.moveValue();
  * \endcode
  *
- * \param bitBuffer Vector of bytes to use.
+ * \param buffer Vector of bytes to use.
  * \param arguments Object's actual parameters together with allocator for object's read constructor (optional).
  *
- * \return Generated object created from the given vector of bytes.
- *
- * \throw CppRuntimeException When deserialization fails.
+ * \return Result containing generated object created from the given vector of bytes, or error code.
  */
 template <typename T, typename... ARGS>
-typename std::enable_if<!std::is_enum<T>::value, T>::type deserializeFromBytes(
-        Span<const uint8_t> buffer, ARGS&&... arguments)
+typename std::enable_if<!std::is_enum<T>::value, Result<T>>::type deserializeFromBytes(
+        Span<const uint8_t> buffer, ARGS&&... arguments) noexcept
 {
     BitStreamReader reader(buffer);
-    return T(reader, std::forward<ARGS>(arguments)...);
+    return T::deserialize(reader, std::forward<ARGS>(arguments)...);
 }
 
 /**
@@ -360,18 +422,24 @@ typename std::enable_if<!std::is_enum<T>::value, T>::type deserializeFromBytes(
  *     #include <zserio/SerializeUtil.h>
  *
  *     const SomeZserioEnum enumValue = SomeZserioEnum::SomeEnumValue;
- *     const zserio::vector<uint8_t> buffer = zserio::serializeToBytes(enumValue);
- *     const SomeZserioEnum readEnumValue = zserio::deserializeFromBytes<DummyEnum>(buffer);
+ *     auto bufferResult = zserio::serializeToBytes(enumValue);
+ *     if (bufferResult.isError()) {
+ *         // handle error
+ *     }
+ *     auto readEnumResult = zserio::deserializeFromBytes<DummyEnum>(bufferResult.getValue());
+ *     if (readEnumResult.isError()) {
+ *         // handle error
+ *     }
+ *     const SomeZserioEnum readEnumValue = readEnumResult.getValue();
  * \endcode
  *
- * \param bitBuffer Vector of bytes to use.
+ * \param buffer Vector of bytes to use.
  *
- * \return Generated enum created from the given vector of bytes.
- *
- * \throw CppRuntimeException When deserialization fails.
+ * \return Result containing generated enum created from the given vector of bytes, or error code.
  */
 template <typename T>
-typename std::enable_if<std::is_enum<T>::value, T>::type deserializeFromBytes(Span<const uint8_t> buffer)
+typename std::enable_if<std::is_enum<T>::value, Result<T>>::type deserializeFromBytes(
+        Span<const uint8_t> buffer) noexcept
 {
     BitStreamReader reader(buffer);
     return zserio::read<T>(reader);
@@ -385,19 +453,27 @@ typename std::enable_if<std::is_enum<T>::value, T>::type deserializeFromBytes(Sp
  *     #include <zserio/SerializeUtil.h>
  *
  *     SomeZserioObject object;
- *     zserio::serializeToFile(object, "FileName.bin");
+ *     auto result = zserio::serializeToFile(object, "FileName.bin");
+ *     if (result.isError()) {
+ *         // handle error
+ *     }
  * \endcode
  *
  * \param object Generated object to serialize.
  * \param fileName File name to write.
+ * \param arguments Object's actual parameters for initialize() method (optional).
  *
- * \throw CppRuntimeException When serialization fails.
+ * \return Result<void> indicating success or error code.
  */
 template <typename T, typename... ARGS>
-void serializeToFile(T& object, const std::string& fileName, ARGS&&... arguments)
+Result<void> serializeToFile(T& object, const std::string& fileName, ARGS&&... arguments) noexcept
 {
-    const auto bitBuffer = serialize(object, std::forward<ARGS>(arguments)...);
-    writeBufferToFile(bitBuffer, fileName);
+    auto bitBufferResult = serialize(object, std::forward<ARGS>(arguments)...);
+    if (bitBufferResult.isError())
+    {
+        return Result<void>::error(bitBufferResult.getError());
+    }
+    return writeBufferToFile(bitBufferResult.getValue(), fileName);
 }
 
 /**
@@ -409,8 +485,15 @@ void serializeToFile(T& object, const std::string& fileName, ARGS&&... arguments
  *
  *     const std::string fileName = "FileName.bin";
  *     SomeZserioObject object;
- *     zserio::serializeToFile(object, fileName);
- *     SomeZserioObject readObject = zserio::deserializeFromFile<SomeZserioObject>(fileName);
+ *     auto writeResult = zserio::serializeToFile(object, fileName);
+ *     if (writeResult.isError()) {
+ *         // handle error
+ *     }
+ *     auto readObjectResult = zserio::deserializeFromFile<SomeZserioObject>(fileName);
+ *     if (readObjectResult.isError()) {
+ *         // handle error
+ *     }
+ *     SomeZserioObject readObject = readObjectResult.moveValue();
  * \endcode
  *
  * \note Please note that BitBuffer is always allocated using 'std::allocator<uint8_t>'.
@@ -418,15 +501,17 @@ void serializeToFile(T& object, const std::string& fileName, ARGS&&... arguments
  * \param fileName File to use.
  * \param arguments Object's arguments (optional).
  *
- * \return Generated object created from the given file contents.
- *
- * \throw CppRuntimeException When deserialization fails.
+ * \return Result containing generated object created from the given file contents, or error code.
  */
 template <typename T, typename... ARGS>
-T deserializeFromFile(const std::string& fileName, ARGS&&... arguments)
+Result<T> deserializeFromFile(const std::string& fileName, ARGS&&... arguments) noexcept
 {
-    const BitBuffer bitBuffer = readBufferFromFile(fileName);
-    return deserialize<T>(bitBuffer, std::forward<ARGS>(arguments)...);
+    auto bitBufferResult = readBufferFromFile(fileName);
+    if (bitBufferResult.isError())
+    {
+        return Result<T>::error(bitBufferResult.getError());
+    }
+    return deserialize<T>(bitBufferResult.getValue(), std::forward<ARGS>(arguments)...);
 }
 
 } // namespace zserio
