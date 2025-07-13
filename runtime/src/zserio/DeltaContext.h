@@ -152,12 +152,16 @@ public:
      * \return Value of the packed element.
      */
     template <typename ARRAY_TRAITS, typename OWNER_TYPE>
-    typename ARRAY_TRAITS::ElementType read(const OWNER_TYPE& owner, BitStreamReader& in)
+    Result<typename ARRAY_TRAITS::ElementType> read(const OWNER_TYPE& owner, BitStreamReader& in)
     {
         if (!isFlagSet(PROCESSING_STARTED_FLAG))
         {
             setFlag(PROCESSING_STARTED_FLAG);
-            readDescriptor(in);
+            auto descResult = readDescriptor(in);
+            if (!descResult.isSuccess())
+            {
+                return Result<typename ARRAY_TRAITS::ElementType>::error(descResult.getError());
+            }
 
             return readUnpacked<ARRAY_TRAITS>(owner, in);
         }
@@ -169,14 +173,20 @@ public:
         {
             if (m_maxBitNumber > 0)
             {
-                const int64_t delta = in.readSignedBits64(static_cast<uint8_t>(m_maxBitNumber + 1));
+                auto deltaResult = in.readSignedBits64(static_cast<uint8_t>(m_maxBitNumber + 1));
+                if (!deltaResult.isSuccess())
+                {
+                    return Result<typename ARRAY_TRAITS::ElementType>::error(deltaResult.getError());
+                }
+                const int64_t delta = deltaResult.getValue();
                 const typename ARRAY_TRAITS::ElementType element =
                         static_cast<typename ARRAY_TRAITS::ElementType>(
                                 m_previousElement + static_cast<uint64_t>(delta));
                 m_previousElement = static_cast<uint64_t>(element);
             }
 
-            return static_cast<typename ARRAY_TRAITS::ElementType>(m_previousElement);
+            return Result<typename ARRAY_TRAITS::ElementType>::success(
+                    static_cast<typename ARRAY_TRAITS::ElementType>(m_previousElement));
         }
     }
 
@@ -188,19 +198,23 @@ public:
      * \param element Value of the current element.
      */
     template <typename ARRAY_TRAITS, typename OWNER_TYPE>
-    void write(const OWNER_TYPE& owner, BitStreamWriter& out, typename ARRAY_TRAITS::ElementType element)
+    Result<void> write(const OWNER_TYPE& owner, BitStreamWriter& out, typename ARRAY_TRAITS::ElementType element)
     {
         if (!isFlagSet(PROCESSING_STARTED_FLAG))
         {
             setFlag(PROCESSING_STARTED_FLAG);
             finishInit();
-            writeDescriptor(out);
+            auto descResult = writeDescriptor(out);
+            if (!descResult.isSuccess())
+            {
+                return descResult;
+            }
 
-            writeUnpacked<ARRAY_TRAITS>(owner, out, element);
+            return writeUnpacked<ARRAY_TRAITS>(owner, out, element);
         }
         else if (!isFlagSet(IS_PACKED_FLAG))
         {
-            writeUnpacked<ARRAY_TRAITS>(owner, out, element);
+            return writeUnpacked<ARRAY_TRAITS>(owner, out, element);
         }
         else
         {
@@ -208,9 +222,14 @@ public:
             {
                 // it's already checked in the init phase that the delta will fit into int64_t
                 const int64_t delta = detail::calcUncheckedDelta(element, m_previousElement);
-                out.writeSignedBits64(delta, static_cast<uint8_t>(m_maxBitNumber + 1));
+                auto writeResult = out.writeSignedBits64(delta, static_cast<uint8_t>(m_maxBitNumber + 1));
+                if (!writeResult.isSuccess())
+                {
+                    return writeResult;
+                }
                 m_previousElement = static_cast<uint64_t>(element);
             }
+            return Result<void>::success();
         }
     }
 
@@ -248,7 +267,7 @@ public:
      * \return Value of the packed element.
      */
     template <typename ARRAY_TRAITS>
-    typename ARRAY_TRAITS::ElementType read(BitStreamReader& in)
+    Result<typename ARRAY_TRAITS::ElementType> read(BitStreamReader& in)
     {
         return read<ARRAY_TRAITS>(DummyOwner(), in);
     }
@@ -260,9 +279,9 @@ public:
      * \param element Value of the current element.
      */
     template <typename ARRAY_TRAITS>
-    void write(BitStreamWriter& out, typename ARRAY_TRAITS::ElementType element)
+    Result<void> write(BitStreamWriter& out, typename ARRAY_TRAITS::ElementType element)
     {
-        write<ARRAY_TRAITS>(DummyOwner(), out, element);
+        return write<ARRAY_TRAITS>(DummyOwner(), out, element);
     }
 
 private:
@@ -311,63 +330,94 @@ private:
         return ARRAY_TRAITS::bitSizeOf(element);
     }
 
-    void readDescriptor(BitStreamReader& in)
+    Result<void> readDescriptor(BitStreamReader& in)
     {
-        if (in.readBool())
+        auto boolResult = in.readBool();
+        if (!boolResult.isSuccess())
+        {
+            return Result<void>::error(boolResult.getError());
+        }
+        
+        if (boolResult.getValue())
         {
             setFlag(IS_PACKED_FLAG);
-            m_maxBitNumber = static_cast<uint8_t>(in.readBits(MAX_BIT_NUMBER_BITS));
+            auto bitsResult = in.readBits(MAX_BIT_NUMBER_BITS);
+            if (!bitsResult.isSuccess())
+            {
+                return Result<void>::error(bitsResult.getError());
+            }
+            m_maxBitNumber = static_cast<uint8_t>(bitsResult.getValue());
         }
         else
         {
             resetFlag(IS_PACKED_FLAG);
         }
+        return Result<void>::success();
     }
 
     template <typename ARRAY_TRAITS,
             typename std::enable_if<has_owner_type<ARRAY_TRAITS>::value, int>::type = 0>
-    typename ARRAY_TRAITS::ElementType readUnpacked(
+    Result<typename ARRAY_TRAITS::ElementType> readUnpacked(
             const typename ARRAY_TRAITS::OwnerType& owner, BitStreamReader& in)
     {
-        const auto element = ARRAY_TRAITS::read(owner, in);
+        auto elementResult = ARRAY_TRAITS::read(owner, in);
+        if (!elementResult.isSuccess())
+        {
+            return elementResult;
+        }
+        const auto element = elementResult.getValue();
         m_previousElement = static_cast<uint64_t>(element);
-        return element;
+        return Result<typename ARRAY_TRAITS::ElementType>::success(element);
     }
 
     template <typename ARRAY_TRAITS,
             typename std::enable_if<!has_owner_type<ARRAY_TRAITS>::value, int>::type = 0>
-    typename ARRAY_TRAITS::ElementType readUnpacked(const DummyOwner&, BitStreamReader& in)
+    Result<typename ARRAY_TRAITS::ElementType> readUnpacked(const DummyOwner&, BitStreamReader& in)
     {
-        const auto element = ARRAY_TRAITS::read(in);
+        auto elementResult = ARRAY_TRAITS::read(in);
+        if (!elementResult.isSuccess())
+        {
+            return elementResult;
+        }
+        const auto element = elementResult.getValue();
         m_previousElement = static_cast<uint64_t>(element);
-        return element;
+        return Result<typename ARRAY_TRAITS::ElementType>::success(element);
     }
 
-    void writeDescriptor(BitStreamWriter& out) const
+    Result<void> writeDescriptor(BitStreamWriter& out) const
     {
         const bool isPacked = isFlagSet(IS_PACKED_FLAG);
-        out.writeBool(isPacked);
+        auto boolResult = out.writeBool(isPacked);
+        if (!boolResult.isSuccess())
+        {
+            return boolResult;
+        }
         if (isPacked)
         {
-            out.writeBits(m_maxBitNumber, MAX_BIT_NUMBER_BITS);
+            auto bitsResult = out.writeBits(m_maxBitNumber, MAX_BIT_NUMBER_BITS);
+            if (!bitsResult.isSuccess())
+            {
+                return bitsResult;
+            }
         }
+        return Result<void>::success();
     }
 
     template <typename ARRAY_TRAITS,
             typename std::enable_if<has_owner_type<ARRAY_TRAITS>::value, int>::type = 0>
-    void writeUnpacked(const typename ARRAY_TRAITS::OwnerType& owner, BitStreamWriter& out,
+    Result<void> writeUnpacked(const typename ARRAY_TRAITS::OwnerType& owner, BitStreamWriter& out,
             typename ARRAY_TRAITS::ElementType element)
     {
         m_previousElement = static_cast<uint64_t>(element);
-        ARRAY_TRAITS::write(owner, out, element);
+        return ARRAY_TRAITS::write(owner, out, element);
     }
 
     template <typename ARRAY_TRAITS,
             typename std::enable_if<!has_owner_type<ARRAY_TRAITS>::value, int>::type = 0>
-    void writeUnpacked(const DummyOwner&, BitStreamWriter& out, typename ARRAY_TRAITS::ElementType element)
+    Result<void> writeUnpacked(const DummyOwner&, BitStreamWriter& out, typename ARRAY_TRAITS::ElementType element)
     {
         m_previousElement = static_cast<uint64_t>(element);
-        ARRAY_TRAITS::write(out, element);
+        return ARRAY_TRAITS::write(out, element);
     }
 
     void setFlag(uint8_t flagMask)

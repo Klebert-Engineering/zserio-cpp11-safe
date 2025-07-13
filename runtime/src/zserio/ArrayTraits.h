@@ -164,9 +164,9 @@ public:
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf()
+    static Result<size_t> bitSizeOf()
     {
-        return NUM_BITS;
+        return Result<size_t>::success(NUM_BITS);
     }
 
     /**
@@ -174,7 +174,7 @@ public:
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType)
+    static Result<size_t> bitSizeOf(ElementType)
     {
         return bitSizeOf();
     }
@@ -184,7 +184,7 @@ public:
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType)
+    static Result<size_t> bitSizeOf(size_t, ElementType)
     {
         return bitSizeOf();
     }
@@ -196,9 +196,9 @@ public:
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType)
     {
-        return bitPosition + NUM_BITS;
+        return Result<size_t>::success(bitPosition + NUM_BITS);
     }
 
     /**
@@ -246,9 +246,9 @@ public:
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf()
+    static Result<size_t> bitSizeOf()
     {
-        return ELEMENT_BIT_SIZE::get();
+        return Result<size_t>::success(ELEMENT_BIT_SIZE::get());
     }
 
     /**
@@ -256,7 +256,7 @@ public:
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType)
+    static Result<size_t> bitSizeOf(ElementType)
     {
         return bitSizeOf();
     }
@@ -266,7 +266,7 @@ public:
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType)
+    static Result<size_t> bitSizeOf(size_t, ElementType)
     {
         return bitSizeOf();
     }
@@ -278,9 +278,14 @@ public:
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType)
     {
-        return bitPosition + bitSizeOf();
+        auto sizeResult = bitSizeOf();
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -334,9 +339,9 @@ public:
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(const OwnerType& owner)
+    static Result<size_t> bitSizeOf(const OwnerType& owner)
     {
-        return ELEMENT_BIT_SIZE::get(owner);
+        return Result<size_t>::success(ELEMENT_BIT_SIZE::get(owner));
     }
 
     /**
@@ -346,7 +351,7 @@ public:
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(const OwnerType& owner, ElementType)
+    static Result<size_t> bitSizeOf(const OwnerType& owner, ElementType)
     {
         return bitSizeOf(owner);
     }
@@ -358,7 +363,7 @@ public:
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(const OwnerType& owner, size_t, ElementType)
+    static Result<size_t> bitSizeOf(const OwnerType& owner, size_t, ElementType)
     {
         return bitSizeOf(owner);
     }
@@ -371,9 +376,14 @@ public:
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(const OwnerType& owner, size_t bitPosition, ElementType)
+    static Result<size_t> initializeOffsets(const OwnerType& owner, size_t bitPosition, ElementType)
     {
-        return bitPosition + bitSizeOf(owner);
+        auto sizeResult = bitSizeOf(owner);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -384,7 +394,7 @@ public:
      *
      * \return Read element.
      */
-    static ElementType read(const OwnerType& owner, BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(const OwnerType& owner, BitStreamReader& in, size_t = 0)
     {
         return detail::read_bits<T>(in, ELEMENT_BIT_SIZE::get(owner));
     }
@@ -419,9 +429,9 @@ struct StdIntArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf()
+    static Result<size_t> bitSizeOf()
     {
-        return NUM_BITS;
+        return Result<size_t>::success(NUM_BITS);
     }
 
     /**
@@ -429,7 +439,7 @@ struct StdIntArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType)
+    static Result<size_t> bitSizeOf(ElementType)
     {
         return bitSizeOf();
     }
@@ -439,7 +449,7 @@ struct StdIntArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType)
+    static Result<size_t> bitSizeOf(size_t, ElementType)
     {
         return bitSizeOf();
     }
@@ -451,9 +461,9 @@ struct StdIntArrayTraits
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType)
     {
-        return bitPosition + NUM_BITS;
+        return Result<size_t>::success(bitPosition + NUM_BITS);
     }
 
     /**
@@ -508,7 +518,7 @@ struct VarIntNNArrayTraits<int16_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType element)
+    static Result<size_t> bitSizeOf(ElementType element)
     {
         return zserio::bitSizeOfVarInt16(element);
     }
@@ -520,7 +530,7 @@ struct VarIntNNArrayTraits<int16_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType element)
+    static Result<size_t> bitSizeOf(size_t, ElementType element)
     {
         return bitSizeOf(element);
     }
@@ -533,9 +543,14 @@ struct VarIntNNArrayTraits<int16_t>
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -583,7 +598,7 @@ struct VarIntNNArrayTraits<int32_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType element)
+    static Result<size_t> bitSizeOf(ElementType element)
     {
         return zserio::bitSizeOfVarInt32(element);
     }
@@ -595,7 +610,7 @@ struct VarIntNNArrayTraits<int32_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType element)
+    static Result<size_t> bitSizeOf(size_t, ElementType element)
     {
         return bitSizeOf(element);
     }
@@ -608,9 +623,14 @@ struct VarIntNNArrayTraits<int32_t>
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -656,7 +676,7 @@ struct VarIntNNArrayTraits<int64_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType element)
+    static Result<size_t> bitSizeOf(ElementType element)
     {
         return zserio::bitSizeOfVarInt64(element);
     }
@@ -668,7 +688,7 @@ struct VarIntNNArrayTraits<int64_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType element)
+    static Result<size_t> bitSizeOf(size_t, ElementType element)
     {
         return bitSizeOf(element);
     }
@@ -681,9 +701,14 @@ struct VarIntNNArrayTraits<int64_t>
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -729,7 +754,7 @@ struct VarIntNNArrayTraits<uint16_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType element)
+    static Result<size_t> bitSizeOf(ElementType element)
     {
         return zserio::bitSizeOfVarUInt16(element);
     }
@@ -741,7 +766,7 @@ struct VarIntNNArrayTraits<uint16_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType element)
+    static Result<size_t> bitSizeOf(size_t, ElementType element)
     {
         return bitSizeOf(element);
     }
@@ -754,9 +779,14 @@ struct VarIntNNArrayTraits<uint16_t>
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -802,7 +832,7 @@ struct VarIntNNArrayTraits<uint32_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType element)
+    static Result<size_t> bitSizeOf(ElementType element)
     {
         return zserio::bitSizeOfVarUInt32(element);
     }
@@ -814,7 +844,7 @@ struct VarIntNNArrayTraits<uint32_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType element)
+    static Result<size_t> bitSizeOf(size_t, ElementType element)
     {
         return bitSizeOf(element);
     }
@@ -827,9 +857,14 @@ struct VarIntNNArrayTraits<uint32_t>
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -875,7 +910,7 @@ struct VarIntNNArrayTraits<uint64_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType element)
+    static Result<size_t> bitSizeOf(ElementType element)
     {
         return zserio::bitSizeOfVarUInt64(element);
     }
@@ -887,7 +922,7 @@ struct VarIntNNArrayTraits<uint64_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType element)
+    static Result<size_t> bitSizeOf(size_t, ElementType element)
     {
         return bitSizeOf(element);
     }
@@ -900,9 +935,14 @@ struct VarIntNNArrayTraits<uint64_t>
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -954,7 +994,7 @@ struct VarIntArrayTraits<int64_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType element)
+    static Result<size_t> bitSizeOf(ElementType element)
     {
         return zserio::bitSizeOfVarInt(element);
     }
@@ -966,7 +1006,7 @@ struct VarIntArrayTraits<int64_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType element)
+    static Result<size_t> bitSizeOf(size_t, ElementType element)
     {
         return bitSizeOf(element);
     }
@@ -979,9 +1019,14 @@ struct VarIntArrayTraits<int64_t>
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -1027,7 +1072,7 @@ struct VarIntArrayTraits<uint64_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType element)
+    static Result<size_t> bitSizeOf(ElementType element)
     {
         return zserio::bitSizeOfVarUInt(element);
     }
@@ -1039,7 +1084,7 @@ struct VarIntArrayTraits<uint64_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType element)
+    static Result<size_t> bitSizeOf(size_t, ElementType element)
     {
         return bitSizeOf(element);
     }
@@ -1052,9 +1097,14 @@ struct VarIntArrayTraits<uint64_t>
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -1099,7 +1149,7 @@ struct VarSizeArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType element)
+    static Result<size_t> bitSizeOf(ElementType element)
     {
         return zserio::bitSizeOfVarSize(element);
     }
@@ -1111,7 +1161,7 @@ struct VarSizeArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType element)
+    static Result<size_t> bitSizeOf(size_t, ElementType element)
     {
         return bitSizeOf(element);
     }
@@ -1124,9 +1174,14 @@ struct VarSizeArrayTraits
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -1169,9 +1224,9 @@ struct Float16ArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf()
+    static Result<size_t> bitSizeOf()
     {
-        return 16;
+        return Result<size_t>::success(16);
     }
 
     /**
@@ -1179,7 +1234,7 @@ struct Float16ArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType)
+    static Result<size_t> bitSizeOf(size_t, ElementType)
     {
         return bitSizeOf();
     }
@@ -1192,9 +1247,14 @@ struct Float16ArrayTraits
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -1237,9 +1297,9 @@ struct Float32ArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf()
+    static Result<size_t> bitSizeOf()
     {
-        return 32;
+        return Result<size_t>::success(32);
     }
 
     /**
@@ -1247,7 +1307,7 @@ struct Float32ArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType)
+    static Result<size_t> bitSizeOf(size_t, ElementType)
     {
         return bitSizeOf();
     }
@@ -1260,9 +1320,14 @@ struct Float32ArrayTraits
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -1305,9 +1370,9 @@ struct Float64ArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf()
+    static Result<size_t> bitSizeOf()
     {
-        return 64;
+        return Result<size_t>::success(64);
     }
 
     /**
@@ -1315,7 +1380,7 @@ struct Float64ArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType)
+    static Result<size_t> bitSizeOf(size_t, ElementType)
     {
         return bitSizeOf();
     }
@@ -1328,9 +1393,14 @@ struct Float64ArrayTraits
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -1373,9 +1443,9 @@ struct BoolArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf()
+    static Result<size_t> bitSizeOf()
     {
-        return 1;
+        return Result<size_t>::success(1);
     }
 
     /**
@@ -1383,7 +1453,7 @@ struct BoolArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType)
+    static Result<size_t> bitSizeOf(size_t, ElementType)
     {
         return bitSizeOf();
     }
@@ -1396,9 +1466,14 @@ struct BoolArrayTraits
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -1460,9 +1535,14 @@ struct BasicBytesArrayTraits
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, const ElementType& element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, const ElementType& element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -1532,9 +1612,14 @@ struct BasicStringArrayTraits
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, const ElementType& element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, const ElementType& element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -1604,9 +1689,14 @@ struct BasicBitBufferArrayTraits
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, const ElementType& element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, const ElementType& element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -1673,7 +1763,7 @@ struct EnumArrayTraits
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
         return zserio::initializeOffsets(bitPosition, element);
     }
@@ -1722,7 +1812,7 @@ struct BitmaskArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType element)
+    static Result<size_t> bitSizeOf(size_t, ElementType element)
     {
         return element.bitSizeOf();
     }
@@ -1792,7 +1882,7 @@ public:
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(const OwnerType&, size_t bitPosition, const ElementType& element)
+    static Result<size_t> bitSizeOf(const OwnerType&, size_t bitPosition, const ElementType& element)
     {
         return element.bitSizeOf(bitPosition);
     }
@@ -1908,9 +1998,14 @@ public:
      *
      * \return Updated bit stream position which points to the first bit after this element.
      */
-    static size_t initializeOffsets(DeltaContext& deltaContext, size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(DeltaContext& deltaContext, size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(deltaContext, bitPosition, element);
+        auto sizeResult = bitSizeOf(deltaContext, bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -1988,7 +2083,7 @@ public:
      *
      * \return Length of the array element stored in the bit stream in bits.
      */
-    static size_t bitSizeOf(const OwnerType& owner, DeltaContext& deltaContext, size_t, ElementType element)
+    static Result<size_t> bitSizeOf(const OwnerType& owner, DeltaContext& deltaContext, size_t, ElementType element)
     {
         return deltaContext.template bitSizeOf<ArrayTraits>(owner, element);
     }
@@ -2005,10 +2100,15 @@ public:
      *
      * \return Updated bit stream position which points to the first bit after this element.
      */
-    static size_t initializeOffsets(
+    static Result<size_t> initializeOffsets(
             const OwnerType& owner, DeltaContext& deltaContext, size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(owner, deltaContext, bitPosition, element);
+        auto sizeResult = bitSizeOf(owner, deltaContext, bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -2092,7 +2192,7 @@ public:
      *
      * \return Updated bit stream position which points to the first bit after this element.
      */
-    static size_t initializeOffsets(DeltaContext& deltaContext, size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(DeltaContext& deltaContext, size_t bitPosition, ElementType element)
     {
         return zserio::initializeOffsets(deltaContext, bitPosition, element);
     }
@@ -2157,7 +2257,7 @@ public:
      *
      * \return Length of the array element stored in the bit stream in bits.
      */
-    static size_t bitSizeOf(DeltaContext& deltaContext, size_t bitPosition, const ElementType& element)
+    static Result<size_t> bitSizeOf(DeltaContext& deltaContext, size_t bitPosition, const ElementType& element)
     {
         return element.bitSizeOf(deltaContext, bitPosition);
     }
@@ -2171,7 +2271,7 @@ public:
      *
      * \return Updated bit stream position which points to the first bit after this element.
      */
-    static size_t initializeOffsets(DeltaContext& deltaContext, size_t bitPosition, const ElementType& element)
+    static Result<size_t> initializeOffsets(DeltaContext& deltaContext, size_t bitPosition, const ElementType& element)
     {
         return element.initializeOffsets(deltaContext, bitPosition);
     }
@@ -2247,7 +2347,7 @@ public:
      * \return Length of the array element stored in the bit stream in bits.
      */
     template <typename PACKING_CONTEXT>
-    static size_t bitSizeOf(const typename ArrayTraits::OwnerType&, PACKING_CONTEXT& packingContext,
+    static Result<size_t> bitSizeOf(const typename ArrayTraits::OwnerType&, PACKING_CONTEXT& packingContext,
             size_t bitPosition, const ElementType& element)
     {
         return element.bitSizeOf(packingContext, bitPosition);
@@ -2263,7 +2363,7 @@ public:
      * \return Updated bit stream position which points to the first bit after this element.
      */
     template <typename PACKING_CONTEXT>
-    static size_t initializeOffsets(const typename ArrayTraits::OwnerType&, PACKING_CONTEXT& packingContext,
+    static Result<size_t> initializeOffsets(const typename ArrayTraits::OwnerType&, PACKING_CONTEXT& packingContext,
             size_t bitPosition, ElementType& element)
     {
         return element.initializeOffsets(packingContext, bitPosition);
