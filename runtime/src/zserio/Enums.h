@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <type_traits>
 
-#include "zserio/unsafe/CppRuntimeException.h"
+#include "zserio/Result.h"
 #include "zserio/StringView.h"
 #include "zserio/Types.h"
 
@@ -39,12 +39,10 @@ size_t enumToOrdinal(T value);
  *
  * \param rawValue Raw value of the proper underlying type.
  *
- * \return Enum item corresponding to the rawValue.
- *
- * \throw CppRuntimeException when the rawValue doesn't match to any enum item.
+ * \return Result containing enum item corresponding to the rawValue or error code on failure.
  */
 template <typename T>
-T valueToEnum(typename std::underlying_type<T>::type rawValue);
+Result<T> valueToEnum(typename std::underlying_type<T>::type rawValue) noexcept;
 
 /**
  * Gets the underlying raw value of the given enum item.
@@ -74,23 +72,20 @@ uint32_t enumHashCode(T value);
  *
  * \param itemName Name of the enum item.
  *
- * \return Enum item corresponding to the itemName.
- *
- * \throw CppRuntimeException when the itemName doesn't match to any enum item.
+ * \return Result containing enum item corresponding to the itemName or error code on failure.
  */
 template <typename T>
-T stringToEnum(StringView itemName)
+Result<T> stringToEnum(StringView itemName) noexcept
 {
     const auto foundIt = std::find_if(EnumTraits<T>::names.begin(), EnumTraits<T>::names.end(),
             [itemName](const char* enumItemName) { return itemName.compare(enumItemName) == 0; });
     if (foundIt == EnumTraits<T>::names.end())
     {
-        throw CppRuntimeException("Enum item '")
-                << itemName << "' doesn't exist in enum '" << EnumTraits<T>::enumName << "'!";
+        return Result<T>::error(ErrorCode::InvalidValue);
     }
 
     const size_t ordinal = static_cast<size_t>(std::distance(EnumTraits<T>::names.begin(), foundIt));
-    return EnumTraits<T>::values[ordinal];
+    return Result<T>::success(EnumTraits<T>::values[ordinal]);
 }
 
 /**
@@ -208,21 +203,6 @@ void write(BitStreamWriter& out, T value);
  */
 template <typename PACKING_CONTEXT, typename T>
 void write(PACKING_CONTEXT& context, BitStreamWriter& out, T value);
-
-/**
- * Appends any enumeration value to the exception's description.
- *
- * \param exception Exception to modify.
- * \param value Enumeration value to append.
- *
- * \return Reference to the exception to allow operator chaining.
- */
-template <typename T, typename std::enable_if<std::is_enum<T>::value, int>::type = 0>
-CppRuntimeException& operator<<(CppRuntimeException& exception, T value)
-{
-    exception << enumToString(value);
-    return exception;
-}
 
 } // namespace zserio
 

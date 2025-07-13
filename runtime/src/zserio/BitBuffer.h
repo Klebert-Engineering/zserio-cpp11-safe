@@ -6,7 +6,6 @@
 #include <type_traits>
 #include <vector>
 
-#include "zserio/unsafe/CppRuntimeException.h"
 #include "zserio/HashCodeUtil.h"
 #include "zserio/Result.h"
 #include "zserio/Span.h"
@@ -28,6 +27,10 @@ struct BitsTag
  *
  * Because bit buffer size does not have to be byte aligned (divisible by 8), it's possible that not all bits
  * of the last byte are used. In this case, only most significant bits of the corresponded size are used.
+ *
+ * IMPORTANT: When building with -fno-exceptions, vector operations that would normally throw std::bad_alloc
+ * will instead cause std::abort() (GCC) or undefined behavior (other implementations). In functional safety
+ * environments, prefer pre-allocated memory pools or ensure sufficient memory is available before operations.
  */
 template <typename ALLOC = std::allocator<uint8_t>>
 class BasicBitBuffer
@@ -252,16 +255,11 @@ Result<BasicBitBuffer<ALLOC>> BasicBitBuffer<ALLOC>::create(size_t bitSize, cons
 {
     BasicBitBuffer<ALLOC> buffer(allocator);
     
-    try
-    {
-        buffer.m_buffer.resize((bitSize + 7) / 8, 0);
-        buffer.m_bitSize = bitSize;
-        return Result<BasicBitBuffer<ALLOC>>::success(std::move(buffer));
-    }
-    catch (...)
-    {
-        return Result<BasicBitBuffer<ALLOC>>::error(ErrorCode::AllocationFailed);
-    }
+    // Note: resize() can fail with std::bad_alloc, but with -fno-exceptions this becomes
+    // std::abort() or undefined behavior. In safe environments, ensure sufficient memory.
+    buffer.m_buffer.resize((bitSize + 7) / 8, 0);
+    buffer.m_bitSize = bitSize;
+    return Result<BasicBitBuffer<ALLOC>>::success(std::move(buffer));
 }
 
 template <typename ALLOC>
@@ -269,16 +267,11 @@ Result<BasicBitBuffer<ALLOC>> BasicBitBuffer<ALLOC>::fromSpan(Span<const uint8_t
 {
     BasicBitBuffer<ALLOC> bitBuffer(allocator);
     
-    try
-    {
-        bitBuffer.m_buffer.assign(buffer.begin(), buffer.end());
-        bitBuffer.m_bitSize = 8 * buffer.size();
-        return Result<BasicBitBuffer<ALLOC>>::success(std::move(bitBuffer));
-    }
-    catch (...)
-    {
-        return Result<BasicBitBuffer<ALLOC>>::error(ErrorCode::AllocationFailed);
-    }
+    // Note: assign() can fail with std::bad_alloc, but with -fno-exceptions this becomes
+    // std::abort() or undefined behavior. In safe environments, ensure sufficient memory.
+    bitBuffer.m_buffer.assign(buffer.begin(), buffer.end());
+    bitBuffer.m_bitSize = 8 * buffer.size();
+    return Result<BasicBitBuffer<ALLOC>>::success(std::move(bitBuffer));
 }
 
 template <typename ALLOC>
@@ -292,16 +285,11 @@ Result<BasicBitBuffer<ALLOC>> BasicBitBuffer<ALLOC>::fromSpan(Span<const uint8_t
     
     BasicBitBuffer<ALLOC> bitBuffer(allocator);
     
-    try
-    {
-        bitBuffer.m_buffer.assign(buffer.begin(), buffer.end());
-        bitBuffer.m_bitSize = bitSize;
-        return Result<BasicBitBuffer<ALLOC>>::success(std::move(bitBuffer));
-    }
-    catch (...)
-    {
-        return Result<BasicBitBuffer<ALLOC>>::error(ErrorCode::AllocationFailed);
-    }
+    // Note: assign() can fail with std::bad_alloc, but with -fno-exceptions this becomes
+    // std::abort() or undefined behavior. In safe environments, ensure sufficient memory.
+    bitBuffer.m_buffer.assign(buffer.begin(), buffer.end());
+    bitBuffer.m_bitSize = bitSize;
+    return Result<BasicBitBuffer<ALLOC>>::success(std::move(bitBuffer));
 }
 
 template <typename ALLOC>
@@ -338,17 +326,12 @@ Result<BasicBitBuffer<ALLOC>> BasicBitBuffer<ALLOC>::fromBuffer(const uint8_t* b
     
     BasicBitBuffer<ALLOC> bitBuffer(allocator);
     
-    try
-    {
-        const size_t byteSize = (bitSize + 7) / 8;
-        bitBuffer.m_buffer.assign(buffer, buffer + byteSize);
-        bitBuffer.m_bitSize = bitSize;
-        return Result<BasicBitBuffer<ALLOC>>::success(std::move(bitBuffer));
-    }
-    catch (...)
-    {
-        return Result<BasicBitBuffer<ALLOC>>::error(ErrorCode::AllocationFailed);
-    }
+    // Note: assign() can fail with std::bad_alloc, but with -fno-exceptions this becomes
+    // std::abort() or undefined behavior. In safe environments, ensure sufficient memory.
+    const size_t byteSize = (bitSize + 7) / 8;
+    bitBuffer.m_buffer.assign(buffer, buffer + byteSize);
+    bitBuffer.m_bitSize = bitSize;
+    return Result<BasicBitBuffer<ALLOC>>::success(std::move(bitBuffer));
 }
 
 template <typename ALLOC>
@@ -509,17 +492,12 @@ Span<uint8_t> BasicBitBuffer<ALLOC>::getData() noexcept
 template <typename ALLOC>
 Result<void> BasicBitBuffer<ALLOC>::resize(size_t newBitSize) noexcept
 {
-    try
-    {
-        const size_t newByteSize = (newBitSize + 7) / 8;
-        m_buffer.resize(newByteSize, 0);
-        m_bitSize = newBitSize;
-        return Result<void>::success();
-    }
-    catch (...)
-    {
-        return Result<void>::error(ErrorCode::AllocationFailed);
-    }
+    // Note: resize() can fail with std::bad_alloc, but with -fno-exceptions this becomes
+    // std::abort() or undefined behavior. In safe environments, ensure sufficient memory.
+    const size_t newByteSize = (newBitSize + 7) / 8;
+    m_buffer.resize(newByteSize, 0);
+    m_bitSize = newBitSize;
+    return Result<void>::success();
 }
 
 template <typename ALLOC>
@@ -546,20 +524,6 @@ uint8_t BasicBitBuffer<ALLOC>::getMaskedLastByte() const noexcept
 
 /** Typedef to BitBuffer provided for convenience - using std::allocator<uint8_t>. */
 using BitBuffer = BasicBitBuffer<>;
-
-/**
- * Allows to append BitBuffer to CppRuntimeException.
- *
- * \param exception Exception to modify.
- * \param bitBuffer Bit buffer value.
- *
- * \return Reference to the exception to allow operator chaining.
- */
-template <typename ALLOC>
-CppRuntimeException& operator<<(CppRuntimeException& exception, const BasicBitBuffer<ALLOC>& bitBuffer)
-{
-    return exception << "BitBuffer([...], " << bitBuffer.getBitSize() << ")";
-}
 
 } // namespace zserio
 
