@@ -197,7 +197,49 @@ For now, **simplicity wins** - a minimal, verifiable implementation is more valu
 
 ### The Result<T> Pattern
 
-Based on the POC's proven approach, we will adopt a `Result<T>` pattern as the foundation for all error handling:
+Based on the POC's proven approach, we will adopt a `Result<T>` pattern as the foundation for all error handling.
+
+#### C++11 Compatible [[nodiscard]] Attribute
+
+For functional safety, it's critical that callers check Result<T> values and don't ignore errors. The `ZSERIO_NODISCARD` macro provides C++11-compatible enforcement:
+
+```cpp
+// For C++17 and later, use [[nodiscard]]
+#if __cplusplus >= 201703L
+#define ZSERIO_NODISCARD [[nodiscard]]
+#else
+// For earlier versions, use compiler-specific attributes if available
+#if defined(__GNUC__) || defined(__clang__)
+#define ZSERIO_NODISCARD __attribute__((warn_unused_result))
+#else
+#define ZSERIO_NODISCARD
+#endif
+#endif
+```
+
+**Usage Guidelines:**
+
+1. **On the `Result<T>` class itself** - This is the most important annotation. When `Result<T>` is marked with `ZSERIO_NODISCARD`, any function returning `Result<T>` by value automatically triggers a warning if the caller ignores the return value.
+
+2. **On methods returning other types** - Methods like `isSuccess()`, `isError()`, `getError()`, and `getValue()` need individual `ZSERIO_NODISCARD` annotations because they return primitive types or references that wouldn't be checked otherwise.
+
+3. **NOT needed on functions returning `Result<T>`** - Since the class itself is already marked `ZSERIO_NODISCARD`, adding it to individual functions returning `Result<T>` would be redundant.
+
+Example:
+```cpp
+// The class annotation handles all Result<T> returns
+template <typename T>
+class ZSERIO_NODISCARD Result { ... };
+
+// These methods need individual annotations
+ZSERIO_NODISCARD bool isSuccess() const noexcept;
+ZSERIO_NODISCARD ErrorCode getError() const noexcept;
+
+// This function automatically benefits from the class annotation
+Result<void> processData() noexcept;  // No ZSERIO_NODISCARD needed here
+```
+
+With `-Werror` (treat warnings as errors), this enforces error checking at compile time for GCC/Clang users, preventing silent error drops that could compromise functional safety.
 
 ```cpp
 template <typename T = void>
