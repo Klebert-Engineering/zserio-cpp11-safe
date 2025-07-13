@@ -13,6 +13,8 @@
 #include "zserio/BitBuffer.h"
 #include "zserio/BitStreamReader.h"
 #include "zserio/BitStreamWriter.h"
+#include "zserio/Result.h"
+#include "zserio/ErrorCode.h"
 
 namespace zserio
 {
@@ -22,11 +24,9 @@ namespace zserio
  *
  * \param fileName File to read.
  *
- * \return Bit buffer representing the file contents.
- *
- * \throw CppRuntimeException When reading fails.
+ * \return Result containing bit buffer representing the file contents, or error code.
  */
-BitBuffer readBufferFromFile(const std::string& fileName);
+Result<BitBuffer> readBufferFromFile(const std::string& fileName) noexcept;
 
 /**
  * Writes given buffer to file.
@@ -35,9 +35,9 @@ BitBuffer readBufferFromFile(const std::string& fileName);
  * \param bitSize Buffer bit size.
  * \param fileName Name of the file to write.
  *
- * \throw CppRuntimeException When writing fails.
+ * \return Result<void> indicating success or error code.
  */
-void writeBufferToFile(const uint8_t* buffer, size_t bitSize, BitsTag, const std::string& fileName);
+Result<void> writeBufferToFile(const uint8_t* buffer, size_t bitSize, BitsTag, const std::string& fileName) noexcept;
 
 /**
  * Writes given buffer to file.
@@ -48,11 +48,11 @@ void writeBufferToFile(const uint8_t* buffer, size_t bitSize, BitsTag, const std
  * \param byteSize Buffer byte size.
  * \param fileName Name of the file to write.
  *
- * \throw CppRuntimeException When writing fails.
+ * \return Result<void> indicating success or error code.
  */
-inline void writeBufferToFile(const uint8_t* buffer, size_t byteSize, const std::string& fileName)
+inline Result<void> writeBufferToFile(const uint8_t* buffer, size_t byteSize, const std::string& fileName) noexcept
 {
-    writeBufferToFile(buffer, byteSize * 8, BitsTag(), fileName);
+    return writeBufferToFile(buffer, byteSize * 8, BitsTag(), fileName);
 }
 
 /**
@@ -63,12 +63,12 @@ inline void writeBufferToFile(const uint8_t* buffer, size_t byteSize, const std:
  * \param bitBuffer Bit buffer to write.
  * \param fileName Name of the file to write.
  *
- * \throw CppRuntimeException When writing fails.
+ * \return Result<void> indicating success or error code.
  */
 template <typename ALLOC>
-inline void writeBufferToFile(const BasicBitBuffer<ALLOC>& bitBuffer, const std::string& fileName)
+inline Result<void> writeBufferToFile(const BasicBitBuffer<ALLOC>& bitBuffer, const std::string& fileName) noexcept
 {
-    writeBufferToFile(bitBuffer.getBuffer(), bitBuffer.getBitSize(), BitsTag(), fileName);
+    return writeBufferToFile(bitBuffer.getBuffer(), bitBuffer.getBitSize(), BitsTag(), fileName);
 }
 
 /**
@@ -79,11 +79,11 @@ inline void writeBufferToFile(const BasicBitBuffer<ALLOC>& bitBuffer, const std:
  * \param writer Bit stream writer to use.
  * \param fileName Name of the file to write.
  *
- * \throw CppRuntimeException When writing fails.
+ * \return Result<void> indicating success or error code.
  */
-inline void writeBufferToFile(const BitStreamWriter& writer, const std::string& fileName)
+inline Result<void> writeBufferToFile(const BitStreamWriter& writer, const std::string& fileName) noexcept
 {
-    writeBufferToFile(writer.getWriteBuffer(), writer.getBitPosition(), BitsTag(), fileName);
+    return writeBufferToFile(writer.getWriteBuffer(), writer.getBitPosition(), BitsTag(), fileName);
 }
 
 } // namespace zserio
