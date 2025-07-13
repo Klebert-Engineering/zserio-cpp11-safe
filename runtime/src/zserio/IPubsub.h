@@ -3,6 +3,7 @@
 
 #include <memory>
 
+#include "zserio/Result.h"
 #include "zserio/Span.h"
 #include "zserio/StringView.h"
 #include "zserio/Types.h"
@@ -38,9 +39,9 @@ public:
      * \param data Data to publish.
      * \param context Context specific for a particular Pub/Sub implementation.
      *
-     * \throw PubsubException when publishing fails.
+     * \return Success or error code on failure.
      */
-    virtual void publish(StringView topic, Span<const uint8_t> data, void* context) = 0;
+    virtual Result<void> publish(StringView topic, Span<const uint8_t> data, void* context) noexcept = 0;
 
     /**
      * Subscribes a topic.
@@ -51,20 +52,19 @@ public:
      * \param callback Callback to be called when a message with the specified topic arrives.
      * \param context Context specific for a particular Pub/Sub implementation.
      *
-     * \return Subscription ID.
-     * \throw PubsubException when subscribing fails.
+     * \return Result containing subscription ID or error code on failure.
      */
-    virtual SubscriptionId subscribe(
-            StringView topic, const std::shared_ptr<OnTopicCallback>& callback, void* context) = 0;
+    virtual Result<SubscriptionId> subscribe(
+            StringView topic, const std::shared_ptr<OnTopicCallback>& callback, void* context) noexcept = 0;
 
     /**
      * Unsubscribes the subscription with the given ID.
      *
      * \param id ID of the subscription to be unsubscribed.
      *
-     * \throw PubsubException when unsubscribing fails.
+     * \return Success or error code on failure.
      */
-    virtual void unsubscribe(SubscriptionId id) = 0;
+    virtual Result<void> unsubscribe(SubscriptionId id) noexcept = 0;
 };
 
 } // namespace zserio
