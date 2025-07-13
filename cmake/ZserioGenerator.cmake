@@ -126,25 +126,29 @@ function(zserio_generate_cpp11safe)
         return()
     endif()
     
-    # Generate at configure time if needed
-    if(REGENERATE)
+    # REFACTORING MODE: Generation disabled - working with previously generated sources
+    # TODO: Re-enable this once generator is adapted to work with refactored runtime
+    if(FALSE) # DISABLED: if(REGENERATE)
         message(STATUS "Generating C++11-safe code from ${ZSERIO_SCHEMA}")
         
-        execute_process(
-            COMMAND ${Java_JAVA_EXECUTABLE}
-                -cp "${core_jar}:${extension_jar}"
-                zserio.tools.ZserioTool
-                ${ZSERIO_ARGS}
-            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-            RESULT_VARIABLE GENERATION_RESULT
-            OUTPUT_VARIABLE GENERATION_OUTPUT
-            ERROR_VARIABLE GENERATION_ERROR
-        )
-        
-        if(NOT GENERATION_RESULT EQUAL 0)
-            message(FATAL_ERROR "Code generation failed:\n${GENERATION_ERROR}")
-        endif()
+        # execute_process(
+        #     COMMAND ${Java_JAVA_EXECUTABLE}
+        #         -cp "${core_jar}:${extension_jar}"
+        #         zserio.tools.ZserioTool
+        #         ${ZSERIO_ARGS}
+        #     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        #     RESULT_VARIABLE GENERATION_RESULT
+        #     OUTPUT_VARIABLE GENERATION_OUTPUT
+        #     ERROR_VARIABLE GENERATION_ERROR
+        # )
+        # 
+        # if(NOT GENERATION_RESULT EQUAL 0)
+        #     message(FATAL_ERROR "Code generation failed:\n${GENERATION_ERROR}")
+        # endif()
     endif()
+    
+    # In refactoring mode, we expect generated sources to already exist
+    message(STATUS "REFACTORING MODE: Using existing generated sources for ${ZSERIO_SCHEMA} (generation disabled)")
     
     # Find generated source files
     file(GLOB GENERATED_CPP_SOURCES "${ZSERIO_OUTPUT_DIR}/${SCHEMA_NAME}/*.cpp")
