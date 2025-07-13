@@ -3,6 +3,7 @@
 
 #include <cstddef>
 
+#include "zserio/Result.h"
 #include "zserio/Types.h"
 
 namespace zserio
@@ -13,22 +14,18 @@ namespace zserio
  *
  * \param value Size of type size_t to convert.
  *
- * \return uint32_t value converted from size.
- *
- * \throw CppRuntimeException when input value is not convertible to uint32_t value.
+ * \return Result containing uint32_t value converted from size or error code on failure.
  */
-uint32_t convertSizeToUInt32(size_t value);
+Result<uint32_t> convertSizeToUInt32(size_t value) noexcept;
 
 /**
  * Converts uint64_t value to size (array size, string size of bit buffer size).
  *
  * \param value uint64_t value to convert.
  *
- * \return size_t value converted from uint64_t value.
- *
- * \throw CppRuntimeException when input value is not convertible to size_t value.
+ * \return Result containing size_t value converted from uint64_t value or error code on failure.
  */
-size_t convertUInt64ToSize(uint64_t value);
+Result<size_t> convertUInt64ToSize(uint64_t value) noexcept;
 
 } // namespace zserio
 

@@ -164,20 +164,32 @@ size_t bitSizeOfVarSize(uint32_t value)
     return bitSizeOfVarIntImpl(value, VARSIZE_MAX_VALUES, "varsize");
 }
 
-size_t bitSizeOfBytes(Span<const uint8_t> bytesValue)
+Result<size_t> bitSizeOfBytes(Span<const uint8_t> bytesValue) noexcept
 {
     const size_t bytesSize = bytesValue.size();
 
     // the bytes consists of varsize for size followed by the bytes
-    return bitSizeOfVarSize(convertSizeToUInt32(bytesSize)) + bytesSize * 8;
+    auto convertResult = convertSizeToUInt32(bytesSize);
+    if (convertResult.isError())
+    {
+        return Result<size_t>::error(convertResult.getError());
+    }
+    
+    return Result<size_t>::success(bitSizeOfVarSize(convertResult.getValue()) + bytesSize * 8);
 }
 
-size_t bitSizeOfString(StringView stringValue)
+Result<size_t> bitSizeOfString(StringView stringValue) noexcept
 {
     const size_t stringSize = stringValue.size();
 
     // the string consists of varsize for size followed by the UTF-8 encoded string
-    return bitSizeOfVarSize(convertSizeToUInt32(stringSize)) + stringSize * 8;
+    auto convertResult = convertSizeToUInt32(stringSize);
+    if (convertResult.isError())
+    {
+        return Result<size_t>::error(convertResult.getError());
+    }
+    
+    return Result<size_t>::success(bitSizeOfVarSize(convertResult.getValue()) + stringSize * 8);
 }
 
 } // namespace zserio

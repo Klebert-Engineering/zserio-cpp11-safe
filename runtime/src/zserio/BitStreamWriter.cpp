@@ -471,7 +471,13 @@ Result<void> BitStreamWriter::writeFloat64(double data) noexcept
 Result<void> BitStreamWriter::writeBytes(Span<const uint8_t> data) noexcept
 {
     const size_t len = data.size();
-    auto sizeResult = writeVarSize(convertSizeToUInt32(len));
+    auto convertResult = convertSizeToUInt32(len);
+    if (convertResult.isError())
+    {
+        return Result<void>::error(convertResult.getError());
+    }
+    
+    auto sizeResult = writeVarSize(convertResult.getValue());
     if (sizeResult.isError())
     {
         return sizeResult;
@@ -509,7 +515,13 @@ Result<void> BitStreamWriter::writeBytes(Span<const uint8_t> data) noexcept
 Result<void> BitStreamWriter::writeString(StringView data) noexcept
 {
     const size_t len = data.size();
-    auto sizeResult = writeVarSize(convertSizeToUInt32(len));
+    auto convertResult = convertSizeToUInt32(len);
+    if (convertResult.isError())
+    {
+        return Result<void>::error(convertResult.getError());
+    }
+    
+    auto sizeResult = writeVarSize(convertResult.getValue());
     if (sizeResult.isError())
     {
         return sizeResult;

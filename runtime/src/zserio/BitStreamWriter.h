@@ -283,7 +283,13 @@ public:
     Result<void> writeBitBuffer(const BasicBitBuffer<ALLOC>& bitBuffer) noexcept
     {
         const size_t bitSize = bitBuffer.getBitSize();
-        auto sizeResult = writeVarSize(convertSizeToUInt32(bitSize));
+        auto convertResult = convertSizeToUInt32(bitSize);
+        if (convertResult.isError())
+        {
+            return Result<void>::error(convertResult.getError());
+        }
+        
+        auto sizeResult = writeVarSize(convertResult.getValue());
         if (sizeResult.isError())
         {
             return sizeResult;

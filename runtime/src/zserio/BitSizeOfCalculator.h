@@ -100,33 +100,39 @@ size_t bitSizeOfVarSize(uint32_t value);
  *
  * \param bytesValue Span representing the bytes value.
  *
- * \return Bit size of the given bytes value.
+ * \return Result containing bit size of the given bytes value or error code on failure.
  */
-size_t bitSizeOfBytes(Span<const uint8_t> bytesValue);
+Result<size_t> bitSizeOfBytes(Span<const uint8_t> bytesValue) noexcept;
 
 /**
  * Calculates bit size of the string.
  *
  * \param stringValue String view for which to calculate bit size.
  *
- * \return Bit size of the given string.
+ * \return Result containing bit size of the given string or error code on failure.
  */
-size_t bitSizeOfString(StringView stringValue);
+Result<size_t> bitSizeOfString(StringView stringValue) noexcept;
 
 /**
  * Calculates bit size of the bit buffer.
  *
  * \param bitBuffer Bit buffer for which to calculate bit size.
  *
- * \return Bit size of the given bit buffer.
+ * \return Result containing bit size of the given bit buffer or error code on failure.
  */
 template <typename ALLOC>
-size_t bitSizeOfBitBuffer(const BasicBitBuffer<ALLOC>& bitBuffer)
+Result<size_t> bitSizeOfBitBuffer(const BasicBitBuffer<ALLOC>& bitBuffer) noexcept
 {
     const size_t bitBufferSize = bitBuffer.getBitSize();
 
     // bit buffer consists of varsize for bit size followed by the bits
-    return bitSizeOfVarSize(convertSizeToUInt32(bitBufferSize)) + bitBufferSize;
+    auto convertResult = convertSizeToUInt32(bitBufferSize);
+    if (convertResult.isError())
+    {
+        return Result<size_t>::error(convertResult.getError());
+    }
+    
+    return Result<size_t>::success(bitSizeOfVarSize(convertResult.getValue()) + bitBufferSize);
 }
 
 } // namespace zserio
