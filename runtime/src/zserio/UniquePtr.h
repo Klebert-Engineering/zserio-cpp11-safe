@@ -6,6 +6,7 @@
 
 #include "zserio/AllocatorHolder.h"
 #include "zserio/RebindAlloc.h"
+#include "zserio/Result.h"
 
 namespace zserio
 {
@@ -92,29 +93,39 @@ using unique_ptr = std::unique_ptr<T, detail::UniquePtrDeleter<ALLOC>>;
  * Allocates memory for an object of type T using given allocator and constructs it passing args to its
  * constructor.
  *
+ * IMPORTANT: This function cannot guarantee exception safety without exceptions. If construction fails,
+ * the behavior is implementation-defined. In safe mode, prefer pre-allocated memory pools or stack allocation.
+ *
  * \param allocator Allocator to use.
  * \param args      List of elements passed to T's constructor.
  *
- * \return Object of type zserio::unique_ptr<T, ALLOC> that owns and stores a pointer to the constructed object.
+ * \return Result containing unique_ptr to the constructed object or error code on failure.
  */
 template <typename T, typename ALLOC, class... Args>
-zserio::unique_ptr<T, RebindAlloc<ALLOC, T>> allocate_unique(const ALLOC& allocator, Args&&... args)
+Result<zserio::unique_ptr<T, RebindAlloc<ALLOC, T>>> allocate_unique(const ALLOC& allocator, Args&&... args) noexcept
 {
     using Allocator = RebindAlloc<ALLOC, T>;
     using AllocTraits = std::allocator_traits<Allocator>;
+    using UniquePtr = zserio::unique_ptr<T, Allocator>;
 
     Allocator typedAllocator = allocator;
-    typename AllocTraits::pointer ptr = AllocTraits::allocate(typedAllocator, 1);
-    try
+    
+    // Allocate memory
+    typename AllocTraits::pointer ptr = nullptr;
+    
+    // Note: allocate() can throw std::bad_alloc, but with -fno-exceptions this becomes std::abort()
+    // or undefined behavior depending on implementation. In safe environments, use pre-allocated pools.
+    ptr = AllocTraits::allocate(typedAllocator, 1);
+    if (ptr == nullptr)
     {
-        AllocTraits::construct(typedAllocator, std::addressof(*ptr), std::forward<Args>(args)...);
-        return zserio::unique_ptr<T, Allocator>(std::addressof(*ptr), typedAllocator);
+        return Result<UniquePtr>::error(ErrorCode::AllocationFailed);
     }
-    catch (...)
-    {
-        AllocTraits::deallocate(typedAllocator, ptr, 1);
-        throw;
-    }
+    
+    // Construct object in-place
+    // Note: construct() can also throw, same caveat applies
+    AllocTraits::construct(typedAllocator, std::addressof(*ptr), std::forward<Args>(args)...);
+    
+    return Result<UniquePtr>::success(UniquePtr(std::addressof(*ptr), typedAllocator));
 }
 
 } // namespace zserio

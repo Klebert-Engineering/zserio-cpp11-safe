@@ -6,7 +6,7 @@
 
 #include "zserio/AllocatorHolder.h"
 #include "zserio/BitSizeOfCalculator.h"
-#include "zserio/CppRuntimeException.h"
+#include "zserio/unsafe/CppRuntimeException.h"
 #include "zserio/unsafe/IReflectable.h"
 #include "zserio/Span.h"
 #include "zserio/StringConvertUtil.h"

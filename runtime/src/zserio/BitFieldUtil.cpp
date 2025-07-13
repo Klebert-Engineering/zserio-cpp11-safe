@@ -1,42 +1,50 @@
 #include "zserio/BitFieldUtil.h"
-#include "zserio/CppRuntimeException.h"
 
 namespace zserio
 {
 
-static void checkBitFieldLength(size_t length)
+static Result<void> checkBitFieldLength(size_t length) noexcept
 {
     if (length == 0 || length > 64)
     {
-        throw CppRuntimeException("Asking for bound of bitfield with invalid length ") << length << "!";
+        return Result<void>::error(ErrorCode::InvalidParameter);
     }
+    return Result<void>::success();
 }
 
-int64_t getBitFieldLowerBound(size_t length, bool isSigned)
+Result<int64_t> getBitFieldLowerBound(size_t length, bool isSigned) noexcept
 {
-    checkBitFieldLength(length);
+    auto checkResult = checkBitFieldLength(length);
+    if (checkResult.isError())
+    {
+        return Result<int64_t>::error(checkResult.getError());
+    }
 
     if (isSigned)
     {
-        return -static_cast<int64_t>((UINT64_C(1) << (length - 1)) - 1) - 1;
+        return Result<int64_t>::success(-static_cast<int64_t>((UINT64_C(1) << (length - 1)) - 1) - 1);
     }
     else
     {
-        return 0;
+        return Result<int64_t>::success(0);
     }
 }
 
-uint64_t getBitFieldUpperBound(size_t length, bool isSigned)
+Result<uint64_t> getBitFieldUpperBound(size_t length, bool isSigned) noexcept
 {
-    checkBitFieldLength(length);
+    auto checkResult = checkBitFieldLength(length);
+    if (checkResult.isError())
+    {
+        return Result<uint64_t>::error(checkResult.getError());
+    }
 
     if (isSigned)
     {
-        return (UINT64_C(1) << (length - 1)) - 1;
+        return Result<uint64_t>::success((UINT64_C(1) << (length - 1)) - 1);
     }
     else
     {
-        return length == 64 ? UINT64_MAX : ((UINT64_C(1) << length) - 1);
+        return Result<uint64_t>::success(length == 64 ? UINT64_MAX : ((UINT64_C(1) << length) - 1));
     }
 }
 

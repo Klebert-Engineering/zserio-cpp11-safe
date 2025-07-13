@@ -7,8 +7,8 @@
 #include <memory>
 #include <utility>
 
-#include "zserio/CppRuntimeException.h"
 #include "zserio/RebindAlloc.h"
+#include "zserio/Result.h"
 #include "zserio/String.h"
 #include "zserio/StringConvertUtil.h"
 
@@ -18,6 +18,11 @@ namespace zserio
 /**
  * Non-owning constant view to a string. The user of this class is responsible of making sure, that the
  * referenced string is valid as long as the view is alive. Inspired by C++17 std::basic_string_view.
+ *
+ * IMPORTANT: When building with -fno-exceptions, std::string usage is not safe as the C++ standard
+ * does not specify behavior for allocation failures without exceptions. Some implementations (like GCC)
+ * invoke std::abort(), others have undefined behavior. This StringView interface is designed to be
+ * completely exception-free and safe for use in no-exception environments.
  */
 template <typename CharT, typename Traits = std::char_traits<CharT>>
 class BasicStringView
@@ -188,18 +193,15 @@ public:
      * Element access operator. Returns reference to the element of the referenced string at given index.
      *
      * \param pos Index of the element to access.
-     * \return Reference to the string element at given index.
-     *
-     * \throw CppRuntimeException if pos is not less than size().
+     * \return Result containing reference to the string element at given index or error code on failure.
      */
-    const_reference at(const size_type pos) const
+    Result<const_reference> at(const size_type pos) const noexcept
     {
         if (pos >= size())
         {
-            throw CppRuntimeException("StringView: Position ")
-                    << pos << " out of range for view size " << size() << "!";
+            return Result<const_reference>::error(ErrorCode::OutOfRange);
         }
-        return m_data[pos];
+        return Result<const_reference>::success(m_data[pos]);
     }
 
     /**
@@ -310,20 +312,17 @@ public:
      * \param dest Buffer where the substring should be copied.
      * \param count Number of elements to copy.
      * \param pos Offset in the string view, where the copy should begin.
-     * \return Number of elements actually copied.
-     *
-     * \throw CppRuntimeException if pos is > size().
+     * \return Result containing number of elements actually copied or error code on failure.
      */
-    size_type copy(CharT* dest, size_type count, size_type pos = 0) const
+    Result<size_type> copy(CharT* dest, size_type count, size_type pos = 0) const noexcept
     {
         if (pos > size())
         {
-            throw CppRuntimeException("StringView: Position ")
-                    << pos << " out of range for view size " << size() << "!";
+            return Result<size_type>::error(ErrorCode::OutOfRange);
         }
         const size_t rcount = std::min(count, size() - pos);
         Traits::copy(dest, data() + pos, rcount);
-        return rcount;
+        return Result<size_type>::success(rcount);
     }
 
     /**
@@ -331,19 +330,16 @@ public:
      *
      * \param pos Position in this view, where the sub-view should start.
      * \param count Number of element in the sub-view.
-     * \return Calculated sub-view.
-     *
-     * \throw CppRuntimeException if pos is > size().
+     * \return Result containing calculated sub-view or error code on failure.
      */
-    BasicStringView substr(size_type pos = 0, size_type count = npos) const
+    Result<BasicStringView> substr(size_type pos = 0, size_type count = npos) const noexcept
     {
         if (pos > size())
         {
-            throw CppRuntimeException("StringView: Position ")
-                    << pos << " out of range for view size " << size() << "!";
+            return Result<BasicStringView>::error(ErrorCode::OutOfRange);
         }
         const size_t rcount = std::min(count, size() - pos);
-        return BasicStringView(m_data + pos, rcount);
+        return Result<BasicStringView>::success(BasicStringView(m_data + pos, rcount));
     }
 
     /**
@@ -386,9 +382,15 @@ public:
      * \return <0, if this view is considered less than the other, ==0, if both views are same,
      * >0, if this view is considered greater than the other.
      */
-    int compare(size_type pos1, size_type count1, BasicStringView other) const
+    int compare(size_type pos1, size_type count1, BasicStringView other) const noexcept
     {
-        return substr(pos1, count1).compare(other);
+        auto substrResult = substr(pos1, count1);
+        if (substrResult.isError())
+        {
+            // Invalid position, treat as less than
+            return -1;
+        }
+        return substrResult.getValue().compare(other);
     }
 
     /**
@@ -402,9 +404,25 @@ public:
      * \return <0, if this view is considered less than the other, ==0, if both views are same,
      * >0, if this view is considered greater than the other.
      */
-    int compare(size_type pos1, size_type count1, BasicStringView other, size_type pos2, size_type count2) const
+    int compare(size_type pos1, size_type count1, BasicStringView other, size_type pos2, size_type count2) const noexcept
     {
-        return substr(pos1, count1).compare(other.substr(pos2, count2));
+        auto substrResult1 = substr(pos1, count1);
+        auto substrResult2 = other.substr(pos2, count2);
+        
+        if (substrResult1.isError() && substrResult2.isError())
+        {
+            return 0; // Both invalid, consider equal
+        }
+        if (substrResult1.isError())
+        {
+            return -1; // This invalid, treat as less than
+        }
+        if (substrResult2.isError())
+        {
+            return 1; // Other invalid, treat as greater than
+        }
+        
+        return substrResult1.getValue().compare(substrResult2.getValue());
     }
 
     /**
@@ -428,9 +446,15 @@ public:
      * \return <0, if this view is considered less than the other, ==0, if both views are same,
      * >0, if this view is considered greater than the other.
      */
-    int compare(size_type pos1, size_type count1, const CharT* str) const
+    int compare(size_type pos1, size_type count1, const CharT* str) const noexcept
     {
-        return substr(pos1, count1).compare(BasicStringView(str));
+        auto substrResult = substr(pos1, count1);
+        if (substrResult.isError())
+        {
+            // Invalid position, treat as less than
+            return -1;
+        }
+        return substrResult.getValue().compare(BasicStringView(str));
     }
 
     /**
@@ -443,9 +467,15 @@ public:
      * \return <0, if this view is considered less than the other, ==0, if both views are same,
      * >0, if this view is considered greater than the other.
      */
-    int compare(size_type pos1, size_type count1, const CharT* str, size_type count2) const
+    int compare(size_type pos1, size_type count1, const CharT* str, size_type count2) const noexcept
     {
-        return substr(pos1, count1).compare(BasicStringView(str, count2));
+        auto substrResult = substr(pos1, count1);
+        if (substrResult.isError())
+        {
+            // Invalid position, treat as less than
+            return -1;
+        }
+        return substrResult.getValue().compare(BasicStringView(str, count2));
     }
 
     /**
@@ -977,20 +1007,6 @@ template <typename ALLOC>
 string<ALLOC> toString(StringView value, const ALLOC& allocator = ALLOC())
 {
     return stringViewToString(value, allocator);
-}
-
-/**
- * Allows to append StringView to CppRuntimeException.
- *
- * \param exception Exception to modify.
- * \param view String view.
- *
- * \return Reference to the exception to allow operator chaining.
- */
-inline CppRuntimeException& operator<<(CppRuntimeException& exception, StringView view)
-{
-    exception.append(view.data(), view.size());
-    return exception;
 }
 
 inline namespace literals

@@ -53,13 +53,11 @@ set(ZSERIO_CPP_RUNTIME_LIB_SRCS
     zserio/BitStreamWriter.h
     zserio/BuiltInOperators.cpp
     zserio/BuiltInOperators.h
-    zserio/ConstraintException.h
-    zserio/CppRuntimeException.cpp
-    zserio/CppRuntimeException.h
     zserio/CppRuntimeVersion.h
     zserio/DeltaContext.h
     zserio/DeprecatedAttribute.h
     zserio/Enums.h
+    zserio/ErrorCode.h
     zserio/FileUtil.cpp
     zserio/FileUtil.h
     zserio/FloatUtil.cpp
@@ -73,16 +71,14 @@ set(ZSERIO_CPP_RUNTIME_LIB_SRCS
     zserio/NoInit.h
     zserio/OptionalHolder.h
     zserio/ParsingInfo.h
-    zserio/PubsubException.h
     zserio/RebindAlloc.h
+    zserio/Result.h
     zserio/RuntimeArch.h
     zserio/SerializeUtil.h
-    zserio/ServiceException.h
     zserio/SizeConvertUtil.cpp
     zserio/SizeConvertUtil.h
     zserio/Span.h
     zserio/SqliteConnection.h
-    zserio/SqliteException.h
     zserio/SqliteFinalizer.h
     zserio/String.h
     zserio/StringConvertUtil.h
@@ -104,6 +100,13 @@ if(ZSERIO_CPP11_UNSAFE)
     message(WARNING "")
     
     list(APPEND ZSERIO_CPP_RUNTIME_LIB_SRCS
+        # Exception classes (unsafe only)
+        zserio/unsafe/CppRuntimeException.h
+        zserio/unsafe/CppRuntimeException.cpp
+        zserio/unsafe/ConstraintException.h
+        zserio/unsafe/PubsubException.h
+        zserio/unsafe/ServiceException.h
+        zserio/unsafe/SqliteException.h
         # JSON support
         zserio/unsafe/JsonEncoder.h
         zserio/unsafe/JsonEncoder.cpp
@@ -148,4 +151,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 if(ZSERIO_CPP11_UNSAFE)
     target_compile_definitions(${PROJECT_NAME} PUBLIC ZSERIO_CPP11_UNSAFE_MODE)
+else()
+    # Add -fno-exceptions flag for safe build
+    target_compile_options(${PROJECT_NAME} PRIVATE -fno-exceptions)
 endif()

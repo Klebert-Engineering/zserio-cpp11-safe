@@ -4,6 +4,7 @@
 #include <map>
 
 #include "zserio/RebindAlloc.h"
+#include "zserio/Result.h"
 #include "zserio/SqliteConnection.h"
 #include "zserio/SqliteFinalizer.h"
 #include "zserio/String.h"
@@ -41,12 +42,10 @@ struct ValidationSqliteUtil
      * \param tableName      Name of the table to get column types of.
      * \param allocator      Allocator to use for the query string composition.
      *
-     * \return Number of rows.
-     *
-     * \throw SqliteException if the table does not exist.
+     * \return Result containing number of rows or error code on failure.
      */
-    static size_t getNumberOfTableRows(SqliteConnection& connection, StringView attachedDbName,
-            StringView tableName, const ALLOC& allocator)
+    static Result<size_t> getNumberOfTableRows(SqliteConnection& connection, StringView attachedDbName,
+            StringView tableName, const ALLOC& allocator) noexcept
     {
         string_type sqlQuery(allocator);
         sqlQuery += "SELECT count(*) FROM ";
@@ -57,15 +56,20 @@ struct ValidationSqliteUtil
         }
         sqlQuery += tableName;
 
-        Statement statement(connection.prepareStatement(sqlQuery));
+        auto statementResult = connection.prepareStatement(sqlQuery);
+        if (statementResult.isError())
+        {
+            return Result<size_t>::error(statementResult.getError());
+        }
+        
+        Statement statement(statementResult.getValue());
         const int result = sqlite3_step(statement.get());
         if (result != SQLITE_ROW)
         {
-            throw SqliteException("ValidationSqliteUtils.getNumberOfTableRows: sqlite3_step() failed: ")
-                    << SqliteErrorCode(result);
+            return Result<size_t>::error(ErrorCode::SqliteError);
         }
 
-        return static_cast<size_t>(sqlite3_column_int64(statement.get(), 0));
+        return Result<size_t>::success(static_cast<size_t>(sqlite3_column_int64(statement.get(), 0)));
     }
 
     /**
@@ -76,9 +80,11 @@ struct ValidationSqliteUtil
      * \param tableName      Name of the table to get column types of.
      * \param tableSchema    Schema to fill.
      * \param allocator      Allocator to use for the query string composition.
+     *
+     * \return Success or error code on failure.
      */
-    static void getTableSchema(SqliteConnection& connection, StringView attachedDbName, StringView tableName,
-            TableSchema& tableSchema, const ALLOC& allocator)
+    static Result<void> getTableSchema(SqliteConnection& connection, StringView attachedDbName, StringView tableName,
+            TableSchema& tableSchema, const ALLOC& allocator) noexcept
     {
         string_type sqlQuery(allocator);
         sqlQuery += "PRAGMA ";
@@ -91,7 +97,13 @@ struct ValidationSqliteUtil
         sqlQuery += tableName;
         sqlQuery += ")";
 
-        Statement statement(connection.prepareStatement(sqlQuery));
+        auto statementResult = connection.prepareStatement(sqlQuery);
+        if (statementResult.isError())
+        {
+            return Result<void>::error(statementResult.getError());
+        }
+        
+        Statement statement(statementResult.getValue());
 
         int result = SQLITE_OK;
         while ((result = sqlite3_step(statement.get())) == SQLITE_ROW)
@@ -108,9 +120,10 @@ struct ValidationSqliteUtil
 
         if (result != SQLITE_DONE)
         {
-            throw SqliteException("ValidationSqliteUtils.getTableSchema: sqlite3_step() failed: ")
-                    << SqliteErrorCode(result);
+            return Result<void>::error(ErrorCode::SqliteError);
         }
+        
+        return Result<void>::success();
     }
 
     /**
@@ -123,11 +136,10 @@ struct ValidationSqliteUtil
      * \param columnName     Name of the column to check.
      * \param allocator      Allocator to use for the query string composition.
      *
-     * \return Returns true if the column is present in the table, even if the column is hidden. Otherwise
-     *         returns false.
+     * \return Result containing true if the column is present in the table (even if hidden), false otherwise, or error code on failure.
      */
-    static bool isColumnInTable(SqliteConnection& connection, StringView attachedDbName, StringView tableName,
-            StringView columnName, const ALLOC& allocator)
+    static Result<bool> isColumnInTable(SqliteConnection& connection, StringView attachedDbName, StringView tableName,
+            StringView columnName, const ALLOC& allocator) noexcept
     {
         // try select to check if hidden column exists
         string_type sqlQuery(allocator);
@@ -142,15 +154,15 @@ struct ValidationSqliteUtil
         sqlQuery += tableName;
         sqlQuery += " LIMIT 0";
 
-        try
+        auto statementResult = connection.prepareStatement(sqlQuery);
+        if (statementResult.isError())
         {
-            Statement statement(connection.prepareStatement(sqlQuery));
-            return sqlite3_step(statement.get()) == SQLITE_DONE;
+            // If prepare fails, column doesn't exist
+            return Result<bool>::success(false);
         }
-        catch (const SqliteException&)
-        {
-            return false;
-        }
+        
+        Statement statement(statementResult.getValue());
+        return Result<bool>::success(sqlite3_step(statement.get()) == SQLITE_DONE);
     }
 
     /**

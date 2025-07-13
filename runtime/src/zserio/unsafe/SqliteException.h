@@ -1,7 +1,7 @@
 #ifndef ZSERIO_SQLITE_EXCEPTION_H_INC
 #define ZSERIO_SQLITE_EXCEPTION_H_INC
 
-#include "zserio/CppRuntimeException.h"
+#include "zserio/unsafe/CppRuntimeException.h"
 
 #include "sqlite3.h"
 

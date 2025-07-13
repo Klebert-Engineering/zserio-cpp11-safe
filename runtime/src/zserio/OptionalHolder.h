@@ -4,10 +4,11 @@
 #include <cstddef>
 #include <type_traits>
 
-#include "zserio/CppRuntimeException.h"
 #include "zserio/NoInit.h"
 #include "zserio/Types.h"
 #include "zserio/UniquePtr.h"
+#include "zserio/Result.h"
+#include "zserio/ErrorCode.h"
 
 namespace zserio
 {
@@ -111,58 +112,61 @@ public:
     /**
      * Dereference operator ->.
      *
-     * \return Const reference to the assigned value.
+     * \return Pointer to the assigned value.
      *
-     * \throw CppRuntimeException when the holder is unset.
+     * \note Returns nullptr when the holder is unset.
      */
-    const T* operator->() const
+    const T* operator->() const noexcept
     {
+        if (!getDerived()->hasValue())
+        {
+            return nullptr;
+        }
         return std::addressof(get());
     }
 
     /**
      * Dereference operator ->.
      *
-     * \return Reference to the assigned value.
+     * \return Pointer to the assigned value.
      *
-     * \throw CppRuntimeException when the holder is unset.
+     * \note Returns nullptr when the holder is unset.
      */
-    T* operator->()
+    T* operator->() noexcept
     {
+        if (!getDerived()->hasValue())
+        {
+            return nullptr;
+        }
         return std::addressof(get());
     }
 
     /**
      * Gets held value.
      *
-     * \return Const reference to the assigned value.
-     *
-     * \throw CppRuntimeException when the holder is unset.
+     * \return Result containing pointer to the assigned value, or error if unset.
      */
-    const T& value() const
+    Result<const T*> value() const noexcept
     {
-        return get();
+        if (!getDerived()->hasValue())
+        {
+            return Result<const T*>::error(ErrorCode::EmptyOptional);
+        }
+        return Result<const T*>::success(std::addressof(get()));
     }
 
     /**
      * Gets held value.
      *
-     * \return Reference to the assigned value.
-     *
-     * \throw CppRuntimeException when the holder is unset.
+     * \return Result containing pointer to the assigned value, or error if unset.
      */
-    T& value()
-    {
-        return get();
-    }
-
-protected:
-    void checkHasValue() const
+    Result<T*> value() noexcept
     {
         if (!getDerived()->hasValue())
         {
-            throwNonPresentException();
+            return Result<T*>::error(ErrorCode::EmptyOptional);
         }
+        return Result<T*>::success(std::addressof(get()));
     }
 
 private:
@@ -184,12 +188,6 @@ private:
     const Derived* getDerived() const
     {
         return static_cast<const Derived*>(this);
-    }
-
-    /** Optimization which increases chances to inline checkHasValue(). */
-    void throwNonPresentException() const
-    {
-        throw CppRuntimeException("Trying to access value of non-present optional field!");
     }
 };
 
@@ -481,11 +479,10 @@ public:
      *
      * \return Const reference to the assigned value.
      *
-     * \throw CppRuntimeException when the holder is unset.
+     * \warning Behavior is undefined when the holder is unset. Always check hasValue() first.
      */
-    const T& operator*() const
+    const T& operator*() const noexcept
     {
-        this->checkHasValue();
         return *m_storage.get();
     }
 
@@ -494,11 +491,10 @@ public:
      *
      * \return Reference to the assigned value.
      *
-     * \throw CppRuntimeException when the holder is unset.
+     * \warning Behavior is undefined when the holder is unset. Always check hasValue() first.
      */
-    T& operator*()
+    T& operator*() noexcept
     {
-        this->checkHasValue();
         return *m_storage.get();
     }
 
@@ -968,11 +964,10 @@ public:
      *
      * \return Const reference to the assigned value.
      *
-     * \throw CppRuntimeException when the holder is unset.
+     * \warning Behavior is undefined when the holder is unset. Always check hasValue() first.
      */
-    const T& operator*() const
+    const T& operator*() const noexcept
     {
-        this->checkHasValue();
         return *m_storage.getObject();
     }
 
@@ -981,11 +976,10 @@ public:
      *
      * \return Reference to the assigned value.
      *
-     * \throw CppRuntimeException when the holder is unset.
+     * \warning Behavior is undefined when the holder is unset. Always check hasValue() first.
      */
-    T& operator*()
+    T& operator*() noexcept
     {
-        this->checkHasValue();
         return *m_storage.getObject();
     }
 

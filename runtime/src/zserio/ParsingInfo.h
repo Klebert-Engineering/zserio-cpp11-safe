@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <limits>
 
-#include "zserio/CppRuntimeException.h"
+#include "zserio/unsafe/CppRuntimeException.h"
 
 namespace zserio
 {

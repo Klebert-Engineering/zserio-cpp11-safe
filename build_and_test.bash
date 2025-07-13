@@ -27,6 +27,43 @@ print_warning() {
     echo -e "${YELLOW}[WARNING]${NC} $1"
 }
 
+# Function to backup generated sources
+backup_generated_sources() {
+    local generated_dir="${BUILD_DIR}/test/mini/generated"
+    local backup_dir="/tmp/zserio_generated_backup_$$"
+    
+    if [ -d "${generated_dir}" ]; then
+        print_info "Backing up generated sources to preserve refactored code..."
+        mkdir -p "${backup_dir}"
+        cp -r "${generated_dir}" "${backup_dir}/"
+        export ZSERIO_BACKUP_DIR="${backup_dir}"
+        print_info "Generated sources backed up to: ${backup_dir}"
+    else
+        print_warning "No existing generated sources found to backup"
+        export ZSERIO_BACKUP_DIR=""
+    fi
+}
+
+# Function to restore generated sources
+restore_generated_sources() {
+    if [ -n "${ZSERIO_BACKUP_DIR}" ] && [ -d "${ZSERIO_BACKUP_DIR}/generated" ]; then
+        local generated_dir="${BUILD_DIR}/test/mini/generated"
+        print_info "Restoring previously generated sources (refactoring mode)..."
+        mkdir -p "$(dirname "${generated_dir}")"
+        cp -r "${ZSERIO_BACKUP_DIR}/generated" "$(dirname "${generated_dir}")/"
+        print_info "Generated sources restored - working with refactored code"
+        
+        # Clean up backup
+        rm -rf "${ZSERIO_BACKUP_DIR}"
+        unset ZSERIO_BACKUP_DIR
+    else
+        # This should only happen if restore is called without backup (programming error)
+        if [ -n "${ZSERIO_BACKUP_DIR}" ]; then
+            print_warning "Backup directory not found: ${ZSERIO_BACKUP_DIR}"
+        fi
+    fi
+}
+
 # Function to check prerequisites
 check_prerequisites() {
     print_info "Checking prerequisites..."
@@ -67,6 +104,9 @@ main() {
     
     # Clean build directory if requested
     if [ "${CLEAN_BUILD}" = "YES" ]; then
+        # Backup generated sources before cleaning
+        backup_generated_sources
+        
         print_info "Cleaning build directory..."
         rm -rf "${BUILD_DIR}"
     fi
@@ -78,31 +118,52 @@ main() {
     # Configure with CMake
     print_info "Configuring with CMake..."
     
-    # For clean builds with tests, we need a two-stage approach
-    if [ "${CLEAN_BUILD}" = "YES" ] && [ "${BUILD_TESTS}" = "ON" ] && [ "${BUILD_EXTENSION}" = "ON" ]; then
-        print_info "Clean build detected - using two-stage build process..."
+    # Different handling for clean vs incremental builds
+    if [ "${CLEAN_BUILD}" = "YES" ]; then
+        print_warning "REFACTORING MODE: Clean build with backup/restore of previously generated sources"
         
-        # Stage 1: Build extension and runtime without tests
-        print_info "Stage 1: Building extension and runtime..."
-        cmake "${SCRIPT_DIR}" \
-            -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
-            -DBUILD_EXTENSION=${BUILD_EXTENSION} \
-            -DBUILD_RUNTIME=${BUILD_RUNTIME} \
-            -DBUILD_TESTS=OFF \
-            -DRUN_TESTS=OFF
-        
-        cmake --build . --parallel --target extension_built
-        
-        # Stage 2: Reconfigure with tests
-        print_info "Stage 2: Reconfiguring with tests..."
-        cmake "${SCRIPT_DIR}" \
-            -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
-            -DBUILD_EXTENSION=${BUILD_EXTENSION} \
-            -DBUILD_RUNTIME=${BUILD_RUNTIME} \
-            -DBUILD_TESTS=${BUILD_TESTS} \
-            -DRUN_TESTS=${RUN_TESTS}
+        # For clean builds with tests, we need a two-stage approach
+        if [ "${BUILD_TESTS}" = "ON" ] && [ "${BUILD_EXTENSION}" = "ON" ]; then
+            print_info "Clean build detected - using two-stage build process..."
+            
+            # Stage 1: Build extension and runtime without tests
+            print_info "Stage 1: Building extension and runtime..."
+            cmake "${SCRIPT_DIR}" \
+                -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+                -DBUILD_EXTENSION=${BUILD_EXTENSION} \
+                -DBUILD_RUNTIME=${BUILD_RUNTIME} \
+                -DBUILD_TESTS=OFF \
+                -DRUN_TESTS=OFF
+            
+            cmake --build . --parallel --target extension_built
+            
+            # Restore generated sources after extension is built
+            restore_generated_sources
+            
+            # Stage 2: Reconfigure with tests
+            print_info "Stage 2: Reconfiguring with tests..."
+            cmake "${SCRIPT_DIR}" \
+                -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+                -DBUILD_EXTENSION=${BUILD_EXTENSION} \
+                -DBUILD_RUNTIME=${BUILD_RUNTIME} \
+                -DBUILD_TESTS=${BUILD_TESTS} \
+                -DRUN_TESTS=${RUN_TESTS}
+        else
+            # Normal clean configure
+            cmake "${SCRIPT_DIR}" \
+                -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+                -DBUILD_EXTENSION=${BUILD_EXTENSION} \
+                -DBUILD_RUNTIME=${BUILD_RUNTIME} \
+                -DBUILD_TESTS=${BUILD_TESTS} \
+                -DRUN_TESTS=${RUN_TESTS}
+            
+            # Restore generated sources after configure
+            restore_generated_sources
+        fi
     else
-        # Normal configure
+        # Incremental build - no backup/restore needed
+        print_warning "REFACTORING MODE: Incremental build using existing generated sources (no generation)"
+        
         cmake "${SCRIPT_DIR}" \
             -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
             -DBUILD_EXTENSION=${BUILD_EXTENSION} \

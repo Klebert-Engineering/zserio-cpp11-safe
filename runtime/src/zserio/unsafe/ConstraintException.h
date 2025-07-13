@@ -1,7 +1,7 @@
 #ifndef ZSERIO_CONSTRAINT_EXCEPTION_H_INC
 #define ZSERIO_CONSTRAINT_EXCEPTION_H_INC
 
-#include "zserio/CppRuntimeException.h"
+#include "zserio/unsafe/CppRuntimeException.h"
 
 namespace zserio
 {

@@ -6,7 +6,8 @@
 #include <cstring>
 
 #include "zserio/BitBuffer.h"
-#include "zserio/CppRuntimeException.h"
+#include "zserio/ErrorCode.h"
+#include "zserio/Result.h"
 #include "zserio/SizeConvertUtil.h"
 #include "zserio/Span.h"
 #include "zserio/StringView.h"
@@ -21,12 +22,6 @@ namespace zserio
 class BitStreamWriter
 {
 public:
-    /** Exception throw in case of insufficient capacity of the given buffer. */
-    class InsufficientCapacityException : public CppRuntimeException
-    {
-    public:
-        using CppRuntimeException::CppRuntimeException;
-    };
 
     /** Type for bit position. */
     using BitPosType = size_t;
@@ -37,7 +32,7 @@ public:
      * \param buffer External byte buffer to create from.
      * \param bufferBitSize Size of the buffer in bits.
      */
-    explicit BitStreamWriter(uint8_t* buffer, size_t bufferBitSize, BitsTag);
+    explicit BitStreamWriter(uint8_t* buffer, size_t bufferBitSize, BitsTag) noexcept;
 
     /**
      * Constructor from externally allocated byte buffer.
@@ -45,22 +40,24 @@ public:
      * \param buffer External byte buffer to create from.
      * \param bufferByteSize Size of the buffer in bytes.
      */
-    explicit BitStreamWriter(uint8_t* buffer, size_t bufferByteSize);
+    explicit BitStreamWriter(uint8_t* buffer, size_t bufferByteSize) noexcept;
 
     /**
      * Constructor from externally allocated byte buffer.
      *
      * \param buffer External buffer to create from as a Span.
      */
-    explicit BitStreamWriter(Span<uint8_t> buffer);
+    explicit BitStreamWriter(Span<uint8_t> buffer) noexcept;
 
     /**
      * Constructor from externally allocated byte buffer with exact bit size.
+     * Note: This constructor does not validate buffer size compatibility.
+     * Use create() factory method for validated construction.
      *
      * \param buffer External buffer to create from as a Span.
      * \param bufferBitSize Size of the buffer in bits.
      */
-    explicit BitStreamWriter(Span<uint8_t> buffer, size_t bufferBitSize);
+    explicit BitStreamWriter(Span<uint8_t> buffer, size_t bufferBitSize) noexcept;
 
     /**
      * Constructor from externally allocated bit buffer.
@@ -68,9 +65,19 @@ public:
      * \param bitBuffer External bit buffer to create from.
      */
     template <typename ALLOC>
-    explicit BitStreamWriter(BasicBitBuffer<ALLOC>& bitBuffer) :
+    explicit BitStreamWriter(BasicBitBuffer<ALLOC>& bitBuffer) noexcept :
             BitStreamWriter(bitBuffer.getData(), bitBuffer.getBitSize())
     {}
+
+    /**
+     * Factory method for construction with validation.
+     *
+     * \param buffer External buffer to create from as a Span.
+     * \param bufferBitSize Size of the buffer in bits.
+     *
+     * \return Result with BitStreamWriter on success, error code on failure.
+     */
+    static Result<BitStreamWriter> create(Span<uint8_t> buffer, size_t bufferBitSize) noexcept;
 
     /**
      * Destructor.
@@ -78,14 +85,14 @@ public:
     ~BitStreamWriter() = default;
 
     /**
-     * Copying and moving is disallowed!
+     * Copying is disallowed, moving is allowed!
      * \{
      */
     BitStreamWriter(const BitStreamWriter&) = delete;
     BitStreamWriter& operator=(const BitStreamWriter&) = delete;
 
-    BitStreamWriter(const BitStreamWriter&&) = delete;
-    BitStreamWriter& operator=(BitStreamWriter&&) = delete;
+    BitStreamWriter(BitStreamWriter&&) = default;
+    BitStreamWriter& operator=(BitStreamWriter&&) = default;
     /**
      * \}
      */
@@ -95,148 +102,198 @@ public:
      *
      * \param data Data to write.
      * \param numBits Number of bits to write.
+     *
+     * \return Success or error code.
      */
-    void writeBits(uint32_t data, uint8_t numBits = 32);
+    Result<void> writeBits(uint32_t data, uint8_t numBits = 32) noexcept;
 
     /**
      * Writes unsigned bits up to 64 bits.
      *
      * \param data Data to write.
      * \param numBits Number of bits to write.
+     *
+     * \return Success or error code.
      */
-    void writeBits64(uint64_t data, uint8_t numBits = 64);
+    Result<void> writeBits64(uint64_t data, uint8_t numBits = 64) noexcept;
 
     /**
      * Writes signed bits up to 32 bits.
      *
      * \param data Data to write.
      * \param numBits Number of bits to write.
+     *
+     * \return Success or error code.
      */
-    void writeSignedBits(int32_t data, uint8_t numBits = 32);
+    Result<void> writeSignedBits(int32_t data, uint8_t numBits = 32) noexcept;
 
     /**
      * Writes signed bits up to 64 bits.
      *
      * \param data Data to write.
      * \param numBits Number of bits to write.
+     *
+     * \return Success or error code.
      */
-    void writeSignedBits64(int64_t data, uint8_t numBits = 64);
+    Result<void> writeSignedBits64(int64_t data, uint8_t numBits = 64) noexcept;
 
     /**
      * Writes signed variable integer up to 64 bits.
      *
      * \param data Varint64 to write.
+     *
+     * \return Success or error code.
      */
-    void writeVarInt64(int64_t data);
+    Result<void> writeVarInt64(int64_t data) noexcept;
 
     /**
      * Writes signed variable integer up to 32 bits.
      *
      * \param data Varint32 to write.
+     *
+     * \return Success or error code.
      */
-    void writeVarInt32(int32_t data);
+    Result<void> writeVarInt32(int32_t data) noexcept;
 
     /**
      * Writes signed variable integer up to 16 bits.
      *
      * \param data Varint16 to write.
+     *
+     * \return Success or error code.
      */
-    void writeVarInt16(int16_t data);
+    Result<void> writeVarInt16(int16_t data) noexcept;
 
     /**
      * Writes unsigned variable integer up to 64 bits.
      *
      * \param data Varuint64 to write.
+     *
+     * \return Success or error code.
      */
-    void writeVarUInt64(uint64_t data);
+    Result<void> writeVarUInt64(uint64_t data) noexcept;
 
     /**
      * Writes unsigned variable integer up to 32 bits.
      *
      * \param data Varuint32 to write.
+     *
+     * \return Success or error code.
      */
-    void writeVarUInt32(uint32_t data);
+    Result<void> writeVarUInt32(uint32_t data) noexcept;
 
     /**
      * Writes unsigned variable integer up to 16 bits.
      *
      * \param data Varuint16 to write.
+     *
+     * \return Success or error code.
      */
-    void writeVarUInt16(uint16_t data);
+    Result<void> writeVarUInt16(uint16_t data) noexcept;
 
     /**
      * Writes signed variable integer up to 72 bits.
      *
      * \param data Varuint64 to write.
+     *
+     * \return Success or error code.
      */
-    void writeVarInt(int64_t data);
+    Result<void> writeVarInt(int64_t data) noexcept;
 
     /**
-     * Writes signed variable integer up to 72 bits.
+     * Writes unsigned variable integer up to 72 bits.
      *
      * \param data Varuint64 to write.
+     *
+     * \return Success or error code.
      */
-    void writeVarUInt(uint64_t data);
+    Result<void> writeVarUInt(uint64_t data) noexcept;
 
     /**
      * Writes variable size integer up to 40 bits.
      *
      * \param data Varsize to write.
+     *
+     * \return Success or error code.
      */
-    void writeVarSize(uint32_t data);
+    Result<void> writeVarSize(uint32_t data) noexcept;
 
     /**
      * Writes 16-bit float.
      *
      * \param data Float16 to write.
+     *
+     * \return Success or error code.
      */
-    void writeFloat16(float data);
+    Result<void> writeFloat16(float data) noexcept;
 
     /**
      * Writes 32-bit float.
      *
      * \param data Float32 to write.
+     *
+     * \return Success or error code.
      */
-    void writeFloat32(float data);
+    Result<void> writeFloat32(float data) noexcept;
 
     /**
      * Writes 64-bit float.
      *
      * \param data Float64 to write.
+     *
+     * \return Success or error code.
      */
-    void writeFloat64(double data);
+    Result<void> writeFloat64(double data) noexcept;
 
     /**
      * Writes bytes.
      *
      * \param data Bytes to write.
+     *
+     * \return Success or error code.
      */
-    void writeBytes(Span<const uint8_t> data);
+    Result<void> writeBytes(Span<const uint8_t> data) noexcept;
 
     /**
      * Writes UTF-8 string.
      *
      * \param data String view to write.
+     *
+     * \return Success or error code.
      */
-    void writeString(StringView data);
+    Result<void> writeString(StringView data) noexcept;
 
     /**
      * Writes bool as a single bit.
      *
      * \param data Bool to write.
+     *
+     * \return Success or error code.
      */
-    void writeBool(bool data);
+    Result<void> writeBool(bool data) noexcept;
 
     /**
      * Writes bit buffer.
      *
      * \param bitBuffer Bit buffer to write.
+     *
+     * \return Success or error code.
      */
     template <typename ALLOC>
-    void writeBitBuffer(const BasicBitBuffer<ALLOC>& bitBuffer)
+    Result<void> writeBitBuffer(const BasicBitBuffer<ALLOC>& bitBuffer) noexcept
     {
         const size_t bitSize = bitBuffer.getBitSize();
-        writeVarSize(convertSizeToUInt32(bitSize));
+        auto convertResult = convertSizeToUInt32(bitSize);
+        if (convertResult.isError())
+        {
+            return Result<void>::error(convertResult.getError());
+        }
+        
+        auto sizeResult = writeVarSize(convertResult.getValue());
+        if (sizeResult.isError())
+        {
+            return sizeResult;
+        }
 
         Span<const uint8_t> buffer = bitBuffer.getData();
         size_t numBytesToWrite = bitSize / 8;
@@ -248,13 +305,21 @@ public:
             // we are not aligned to byte
             for (Span<const uint8_t>::iterator it = buffer.begin(); it != itEnd; ++it)
             {
-                writeUnsignedBits(*it, 8);
+                auto result = writeUnsignedBits(*it, 8);
+                if (result.isError())
+                {
+                    return result;
+                }
             }
         }
         else
         {
             // we are aligned to byte
-            setBitPosition(beginBitPosition + numBytesToWrite * 8);
+            auto posResult = setBitPosition(beginBitPosition + numBytesToWrite * 8);
+            if (posResult.isError())
+            {
+                return posResult;
+            }
             if (hasWriteBuffer())
             {
                 (void)std::copy(buffer.begin(), buffer.begin() + numBytesToWrite,
@@ -264,8 +329,14 @@ public:
 
         if (numRestBits > 0)
         {
-            writeUnsignedBits(static_cast<uint32_t>(*itEnd) >> (8U - numRestBits), numRestBits);
+            auto result = writeUnsignedBits(static_cast<uint32_t>(*itEnd) >> (8U - numRestBits), numRestBits);
+            if (result.isError())
+            {
+                return result;
+            }
         }
+        
+        return Result<void>::success();
     }
 
     /**
@@ -282,15 +353,19 @@ public:
      * Sets current bit position. Use with caution!
      *
      * \param position New bit position.
+     *
+     * \return Success or error code.
      */
-    void setBitPosition(BitPosType position);
+    Result<void> setBitPosition(BitPosType position) noexcept;
 
     /**
      * Moves current bit position to perform the requested bit alignment.
      *
      * \param alignment Size of the alignment in bits.
+     *
+     * \return Success or error code.
      */
-    void alignTo(size_t alignment);
+    Result<void> alignTo(size_t alignment) noexcept;
 
     /**
      * Gets whether the writer has assigned a write buffer.
@@ -307,14 +382,14 @@ public:
      *
      * \return Pointer to the beginning of write buffer.
      */
-    const uint8_t* getWriteBuffer() const;
+    const uint8_t* getWriteBuffer() const noexcept;
 
     /**
      * Gets the write buffer as span.
      *
      * \return Span which represents the write buffer.
      */
-    Span<const uint8_t> getBuffer() const;
+    Span<const uint8_t> getBuffer() const noexcept;
 
     /**
      * Gets size of the underlying buffer in bits.
@@ -327,14 +402,13 @@ public:
     }
 
 private:
-    void writeUnsignedBits(uint32_t data, uint8_t numBits);
-    void writeUnsignedBits64(uint64_t data, uint8_t numBits);
-    void writeSignedVarNum(int64_t value, size_t maxVarBytes, size_t numVarBytes);
-    void writeUnsignedVarNum(uint64_t value, size_t maxVarBytes, size_t numVarBytes);
-    void writeVarNum(uint64_t value, bool hasSign, bool isNegative, size_t maxVarBytes, size_t numVarBytes);
+    Result<void> writeUnsignedBits(uint32_t data, uint8_t numBits) noexcept;
+    Result<void> writeUnsignedBits64(uint64_t data, uint8_t numBits) noexcept;
+    Result<void> writeSignedVarNum(int64_t value, size_t maxVarBytes, size_t numVarBytes) noexcept;
+    Result<void> writeUnsignedVarNum(uint64_t value, size_t maxVarBytes, size_t numVarBytes) noexcept;
+    Result<void> writeVarNum(uint64_t value, bool hasSign, bool isNegative, size_t maxVarBytes, size_t numVarBytes) noexcept;
 
-    void checkCapacity(size_t bitSize) const;
-    void throwInsufficientCapacityException() const;
+    Result<void> checkCapacity(size_t bitSize) const noexcept;
 
     Span<uint8_t> m_buffer;
     size_t m_bitIndex;

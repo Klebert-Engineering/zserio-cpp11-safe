@@ -6,7 +6,6 @@
 
 #include "zserio/BitSizeOfCalculator.h"
 #include "zserio/BitStreamWriter.h"
-#include "zserio/CppRuntimeException.h"
 #include "zserio/FloatUtil.h"
 
 namespace zserio
@@ -324,154 +323,210 @@ static const std::array<int64_t, 65> MAX_I64_VALUES = {
         0x7fffffffffffffffLL,
 };
 
-BitStreamWriter::BitStreamWriter(uint8_t* buffer, size_t bufferBitSize, BitsTag) :
+BitStreamWriter::BitStreamWriter(uint8_t* buffer, size_t bufferBitSize, BitsTag) noexcept :
         m_buffer(buffer, (bufferBitSize + 7) / 8),
         m_bitIndex(0),
         m_bufferBitSize(bufferBitSize)
 {}
 
-BitStreamWriter::BitStreamWriter(uint8_t* buffer, size_t bufferByteSize) :
+BitStreamWriter::BitStreamWriter(uint8_t* buffer, size_t bufferByteSize) noexcept :
         BitStreamWriter(Span<uint8_t>(buffer, bufferByteSize))
 {}
 
-BitStreamWriter::BitStreamWriter(Span<uint8_t> buffer) :
+BitStreamWriter::BitStreamWriter(Span<uint8_t> buffer) noexcept :
         m_buffer(buffer),
         m_bitIndex(0),
         m_bufferBitSize(buffer.size() * 8)
 {}
 
-BitStreamWriter::BitStreamWriter(Span<uint8_t> buffer, size_t bufferBitSize) :
+BitStreamWriter::BitStreamWriter(Span<uint8_t> buffer, size_t bufferBitSize) noexcept :
         m_buffer(buffer),
         m_bitIndex(0),
         m_bufferBitSize(bufferBitSize)
 {
-    if (buffer.size() < (bufferBitSize + 7) / 8)
-    {
-        throw CppRuntimeException("BitStreamWriter: Wrong buffer bit size ('")
-                << buffer.size() << "' < '" << (bufferBitSize + 7) / 8 << "')!";
-    }
+    // Note: Buffer size validation is deferred to the factory method
 }
 
-void BitStreamWriter::writeBits(uint32_t data, uint8_t numBits)
+Result<BitStreamWriter> BitStreamWriter::create(Span<uint8_t> buffer, size_t bufferBitSize) noexcept
+{
+    if (buffer.size() < (bufferBitSize + 7) / 8)
+    {
+        return Result<BitStreamWriter>::error(ErrorCode::InvalidParameter);
+    }
+    return Result<BitStreamWriter>::success(BitStreamWriter(buffer, bufferBitSize));
+}
+
+Result<void> BitStreamWriter::writeBits(uint32_t data, uint8_t numBits) noexcept
 {
     if (numBits == 0 || numBits > sizeof(uint32_t) * 8 || data > MAX_U32_VALUES[numBits])
     {
-        throw CppRuntimeException("BitStreamWriter: Writing of ")
-                << numBits << "-bits value '" << data << "' failed!";
+        return Result<void>::error(ErrorCode::InvalidParameter);
     }
 
-    writeUnsignedBits(data, numBits);
+    return writeUnsignedBits(data, numBits);
 }
 
-void BitStreamWriter::writeBits64(uint64_t data, uint8_t numBits)
+Result<void> BitStreamWriter::writeBits64(uint64_t data, uint8_t numBits) noexcept
 {
     if (numBits == 0 || numBits > sizeof(uint64_t) * 8 || data > MAX_U64_VALUES[numBits])
     {
-        throw CppRuntimeException("BitStreamWriter: Writing of ")
-                << numBits << "-bits value '" << data << "' failed!";
+        return Result<void>::error(ErrorCode::InvalidParameter);
     }
 
-    writeUnsignedBits64(data, numBits);
+    return writeUnsignedBits64(data, numBits);
 }
 
-void BitStreamWriter::writeSignedBits(int32_t data, uint8_t numBits)
+Result<void> BitStreamWriter::writeSignedBits(int32_t data, uint8_t numBits) noexcept
 {
     if (numBits == 0 || numBits > sizeof(int32_t) * 8 || data < MIN_I32_VALUES[numBits] ||
             data > MAX_I32_VALUES[numBits])
     {
-        throw CppRuntimeException("BitStreamWriter: Writing of ")
-                << numBits << "-bits value '" << data << "' failed!";
+        return Result<void>::error(ErrorCode::InvalidParameter);
     }
 
-    writeUnsignedBits(static_cast<uint32_t>(data) & MAX_U32_VALUES[numBits], numBits);
+    return writeUnsignedBits(static_cast<uint32_t>(data) & MAX_U32_VALUES[numBits], numBits);
 }
 
-void BitStreamWriter::writeSignedBits64(int64_t data, uint8_t numBits)
+Result<void> BitStreamWriter::writeSignedBits64(int64_t data, uint8_t numBits) noexcept
 {
     if (numBits == 0 || numBits > sizeof(int64_t) * 8 || data < MIN_I64_VALUES[numBits] ||
             data > MAX_I64_VALUES[numBits])
     {
-        throw CppRuntimeException("BitStreamWriter: Writing of ")
-                << numBits << "-bits value '" << data << "' failed!";
+        return Result<void>::error(ErrorCode::InvalidParameter);
     }
 
-    writeUnsignedBits64(static_cast<uint64_t>(data) & MAX_U64_VALUES[numBits], numBits);
+    return writeUnsignedBits64(static_cast<uint64_t>(data) & MAX_U64_VALUES[numBits], numBits);
 }
 
-void BitStreamWriter::writeVarInt64(int64_t data)
+Result<void> BitStreamWriter::writeVarInt64(int64_t data) noexcept
 {
-    writeSignedVarNum(data, 8, zserio::bitSizeOfVarInt64(data) / 8);
+    auto sizeResult = zserio::bitSizeOfVarInt64(data);
+    if (sizeResult.isError())
+    {
+        return Result<void>::error(sizeResult.getError());
+    }
+    return writeSignedVarNum(data, 8, sizeResult.getValue() / 8);
 }
 
-void BitStreamWriter::writeVarInt32(int32_t data)
+Result<void> BitStreamWriter::writeVarInt32(int32_t data) noexcept
 {
-    writeSignedVarNum(data, 4, zserio::bitSizeOfVarInt32(data) / 8);
+    auto sizeResult = zserio::bitSizeOfVarInt32(data);
+    if (sizeResult.isError())
+    {
+        return Result<void>::error(sizeResult.getError());
+    }
+    return writeSignedVarNum(data, 4, sizeResult.getValue() / 8);
 }
 
-void BitStreamWriter::writeVarInt16(int16_t data)
+Result<void> BitStreamWriter::writeVarInt16(int16_t data) noexcept
 {
-    writeSignedVarNum(data, 2, zserio::bitSizeOfVarInt16(data) / 8);
+    auto sizeResult = zserio::bitSizeOfVarInt16(data);
+    if (sizeResult.isError())
+    {
+        return Result<void>::error(sizeResult.getError());
+    }
+    return writeSignedVarNum(data, 2, sizeResult.getValue() / 8);
 }
 
-void BitStreamWriter::writeVarUInt64(uint64_t data)
+Result<void> BitStreamWriter::writeVarUInt64(uint64_t data) noexcept
 {
-    writeUnsignedVarNum(data, 8, zserio::bitSizeOfVarUInt64(data) / 8);
+    auto sizeResult = zserio::bitSizeOfVarUInt64(data);
+    if (sizeResult.isError())
+    {
+        return Result<void>::error(sizeResult.getError());
+    }
+    return writeUnsignedVarNum(data, 8, sizeResult.getValue() / 8);
 }
 
-void BitStreamWriter::writeVarUInt32(uint32_t data)
+Result<void> BitStreamWriter::writeVarUInt32(uint32_t data) noexcept
 {
-    writeUnsignedVarNum(data, 4, zserio::bitSizeOfVarUInt32(data) / 8);
+    auto sizeResult = zserio::bitSizeOfVarUInt32(data);
+    if (sizeResult.isError())
+    {
+        return Result<void>::error(sizeResult.getError());
+    }
+    return writeUnsignedVarNum(data, 4, sizeResult.getValue() / 8);
 }
 
-void BitStreamWriter::writeVarUInt16(uint16_t data)
+Result<void> BitStreamWriter::writeVarUInt16(uint16_t data) noexcept
 {
-    writeUnsignedVarNum(data, 2, zserio::bitSizeOfVarUInt16(data) / 8);
+    auto sizeResult = zserio::bitSizeOfVarUInt16(data);
+    if (sizeResult.isError())
+    {
+        return Result<void>::error(sizeResult.getError());
+    }
+    return writeUnsignedVarNum(data, 2, sizeResult.getValue() / 8);
 }
 
-void BitStreamWriter::writeVarInt(int64_t data)
+Result<void> BitStreamWriter::writeVarInt(int64_t data) noexcept
 {
     if (data == INT64_MIN)
     {
-        writeBits(0x80, 8); // INT64_MIN is encoded as -0
+        return writeBits(0x80, 8); // INT64_MIN is encoded as -0
     }
     else
     {
-        writeSignedVarNum(data, 9, zserio::bitSizeOfVarInt(data) / 8);
+        auto sizeResult = zserio::bitSizeOfVarInt(data);
+        if (sizeResult.isError())
+        {
+            return Result<void>::error(sizeResult.getError());
+        }
+        return writeSignedVarNum(data, 9, sizeResult.getValue() / 8);
     }
 }
 
-void BitStreamWriter::writeVarUInt(uint64_t data)
+Result<void> BitStreamWriter::writeVarUInt(uint64_t data) noexcept
 {
-    writeUnsignedVarNum(data, 9, zserio::bitSizeOfVarUInt(data) / 8);
+    auto sizeResult = zserio::bitSizeOfVarUInt(data);
+    if (sizeResult.isError())
+    {
+        return Result<void>::error(sizeResult.getError());
+    }
+    return writeUnsignedVarNum(data, 9, sizeResult.getValue() / 8);
 }
 
-void BitStreamWriter::writeVarSize(uint32_t data)
+Result<void> BitStreamWriter::writeVarSize(uint32_t data) noexcept
 {
-    writeUnsignedVarNum(data, 5, zserio::bitSizeOfVarSize(data) / 8);
+    auto sizeResult = zserio::bitSizeOfVarSize(data);
+    if (sizeResult.isError())
+    {
+        return Result<void>::error(sizeResult.getError());
+    }
+    return writeUnsignedVarNum(data, 5, sizeResult.getValue() / 8);
 }
 
-void BitStreamWriter::writeFloat16(float data)
+Result<void> BitStreamWriter::writeFloat16(float data) noexcept
 {
     const uint16_t halfPrecisionFloat = convertFloatToUInt16(data);
-    writeUnsignedBits(halfPrecisionFloat, 16);
+    return writeUnsignedBits(halfPrecisionFloat, 16);
 }
 
-void BitStreamWriter::writeFloat32(float data)
+Result<void> BitStreamWriter::writeFloat32(float data) noexcept
 {
     const uint32_t singlePrecisionFloat = convertFloatToUInt32(data);
-    writeUnsignedBits(singlePrecisionFloat, 32);
+    return writeUnsignedBits(singlePrecisionFloat, 32);
 }
 
-void BitStreamWriter::writeFloat64(double data)
+Result<void> BitStreamWriter::writeFloat64(double data) noexcept
 {
     const uint64_t doublePrecisionFloat = convertDoubleToUInt64(data);
-    writeUnsignedBits64(doublePrecisionFloat, 64);
+    return writeUnsignedBits64(doublePrecisionFloat, 64);
 }
 
-void BitStreamWriter::writeBytes(Span<const uint8_t> data)
+Result<void> BitStreamWriter::writeBytes(Span<const uint8_t> data) noexcept
 {
     const size_t len = data.size();
-    writeVarSize(convertSizeToUInt32(len));
+    auto convertResult = convertSizeToUInt32(len);
+    if (convertResult.isError())
+    {
+        return Result<void>::error(convertResult.getError());
+    }
+    
+    auto sizeResult = writeVarSize(convertResult.getValue());
+    if (sizeResult.isError())
+    {
+        return sizeResult;
+    }
 
     const BitPosType beginBitPosition = getBitPosition();
     if ((beginBitPosition & 0x07U) != 0)
@@ -479,24 +534,43 @@ void BitStreamWriter::writeBytes(Span<const uint8_t> data)
         // we are not aligned to byte
         for (size_t i = 0; i < len; ++i)
         {
-            writeBits(data[i], 8);
+            auto result = writeBits(data[i], 8);
+            if (result.isError())
+            {
+                return result;
+            }
         }
     }
     else
     {
         // we are aligned to bytes
-        setBitPosition(beginBitPosition + len * 8);
+        auto posResult = setBitPosition(beginBitPosition + len * 8);
+        if (posResult.isError())
+        {
+            return posResult;
+        }
         if (hasWriteBuffer())
         {
             (void)std::copy(data.begin(), data.end(), m_buffer.begin() + beginBitPosition / 8);
         }
     }
+    return Result<void>::success();
 }
 
-void BitStreamWriter::writeString(StringView data)
+Result<void> BitStreamWriter::writeString(StringView data) noexcept
 {
     const size_t len = data.size();
-    writeVarSize(convertSizeToUInt32(len));
+    auto convertResult = convertSizeToUInt32(len);
+    if (convertResult.isError())
+    {
+        return Result<void>::error(convertResult.getError());
+    }
+    
+    auto sizeResult = writeVarSize(convertResult.getValue());
+    if (sizeResult.isError())
+    {
+        return sizeResult;
+    }
 
     const BitPosType beginBitPosition = getBitPosition();
     if ((beginBitPosition & 0x07U) != 0)
@@ -504,64 +578,83 @@ void BitStreamWriter::writeString(StringView data)
         // we are not aligned to byte
         for (size_t i = 0; i < len; ++i)
         {
-            writeBits(static_cast<uint32_t>(std::char_traits<char>::to_int_type(data[i])), 8);
+            auto result = writeBits(static_cast<uint32_t>(std::char_traits<char>::to_int_type(data[i])), 8);
+            if (result.isError())
+            {
+                return result;
+            }
         }
     }
     else
     {
         // we are aligned to bytes
-        setBitPosition(beginBitPosition + len * 8);
+        auto posResult = setBitPosition(beginBitPosition + len * 8);
+        if (posResult.isError())
+        {
+            return posResult;
+        }
         if (hasWriteBuffer())
         {
             (void)std::copy(data.begin(), data.begin() + len, m_buffer.data() + beginBitPosition / 8);
         }
     }
+    return Result<void>::success();
 }
 
-void BitStreamWriter::writeBool(bool data)
+Result<void> BitStreamWriter::writeBool(bool data) noexcept
 {
-    writeBits((data ? 1 : 0), 1);
+    return writeBits((data ? 1 : 0), 1);
 }
 
-void BitStreamWriter::setBitPosition(BitPosType position)
+Result<void> BitStreamWriter::setBitPosition(BitPosType position) noexcept
 {
     if (hasWriteBuffer())
     {
-        checkCapacity(position);
+        auto result = checkCapacity(position);
+        if (result.isError())
+        {
+            return result;
+        }
     }
 
     m_bitIndex = position;
+    return Result<void>::success();
 }
 
-void BitStreamWriter::alignTo(size_t alignment)
+Result<void> BitStreamWriter::alignTo(size_t alignment) noexcept
 {
     const BitPosType offset = getBitPosition() % alignment;
     if (offset != 0)
     {
         const uint8_t skip = static_cast<uint8_t>(alignment - offset);
-        writeBits64(0, skip);
+        return writeBits64(0, skip);
     }
+    return Result<void>::success();
 }
 
-const uint8_t* BitStreamWriter::getWriteBuffer() const
+const uint8_t* BitStreamWriter::getWriteBuffer() const noexcept
 {
     return m_buffer.data();
 }
 
-Span<const uint8_t> BitStreamWriter::getBuffer() const
+Span<const uint8_t> BitStreamWriter::getBuffer() const noexcept
 {
     return m_buffer;
 }
 
-void BitStreamWriter::writeUnsignedBits(uint32_t data, uint8_t numBits)
+Result<void> BitStreamWriter::writeUnsignedBits(uint32_t data, uint8_t numBits) noexcept
 {
     if (!hasWriteBuffer())
     {
         m_bitIndex += numBits;
-        return;
+        return Result<void>::success();
     }
 
-    checkCapacity(m_bitIndex + numBits);
+    auto result = checkCapacity(m_bitIndex + numBits);
+    if (result.isError())
+    {
+        return result;
+    }
 
     uint8_t restNumBits = numBits;
     const uint8_t bitsUsed = m_bitIndex & 0x07U;
@@ -598,34 +691,39 @@ void BitStreamWriter::writeUnsignedBits(uint32_t data, uint8_t numBits)
     }
 
     m_bitIndex += numBits;
+    return Result<void>::success();
 }
 
-inline void BitStreamWriter::writeUnsignedBits64(uint64_t data, uint8_t numBits)
+inline Result<void> BitStreamWriter::writeUnsignedBits64(uint64_t data, uint8_t numBits) noexcept
 {
     if (numBits <= 32)
     {
-        writeUnsignedBits(static_cast<uint32_t>(data), numBits);
+        return writeUnsignedBits(static_cast<uint32_t>(data), numBits);
     }
     else
     {
-        writeUnsignedBits(static_cast<uint32_t>(data >> 32U), static_cast<uint8_t>(numBits - 32));
-        writeUnsignedBits(static_cast<uint32_t>(data), 32);
+        auto result = writeUnsignedBits(static_cast<uint32_t>(data >> 32U), static_cast<uint8_t>(numBits - 32));
+        if (result.isError())
+        {
+            return result;
+        }
+        return writeUnsignedBits(static_cast<uint32_t>(data), 32);
     }
 }
 
-inline void BitStreamWriter::writeSignedVarNum(int64_t value, size_t maxVarBytes, size_t numVarBytes)
+inline Result<void> BitStreamWriter::writeSignedVarNum(int64_t value, size_t maxVarBytes, size_t numVarBytes) noexcept
 {
     const uint64_t absValue = static_cast<uint64_t>(value < 0 ? -value : value);
-    writeVarNum(absValue, true, value < 0, maxVarBytes, numVarBytes);
+    return writeVarNum(absValue, true, value < 0, maxVarBytes, numVarBytes);
 }
 
-inline void BitStreamWriter::writeUnsignedVarNum(uint64_t value, size_t maxVarBytes, size_t numVarBytes)
+inline Result<void> BitStreamWriter::writeUnsignedVarNum(uint64_t value, size_t maxVarBytes, size_t numVarBytes) noexcept
 {
-    writeVarNum(value, false, false, maxVarBytes, numVarBytes);
+    return writeVarNum(value, false, false, maxVarBytes, numVarBytes);
 }
 
-inline void BitStreamWriter::writeVarNum(
-        uint64_t value, bool hasSign, bool isNegative, size_t maxVarBytes, size_t numVarBytes)
+inline Result<void> BitStreamWriter::writeVarNum(
+        uint64_t value, bool hasSign, bool isNegative, size_t maxVarBytes, size_t numVarBytes) noexcept
 {
     static const std::array<uint64_t, 8> bitMasks = {0x01, 0x03, 0x07, 0x0F, 0x1F, 0x3F, 0x7F, 0xFF};
     const bool hasMaxByteRange = (numVarBytes == maxVarBytes);
@@ -661,21 +759,22 @@ inline void BitStreamWriter::writeVarNum(
         const size_t shiftBits = (numVarBytes - (i + 1)) * 7 + ((hasMaxByteRange && hasNextByte) ? 1 : 0);
         const uint8_t add = static_cast<uint8_t>((value >> shiftBits) & bitMasks[numBits - 1U]);
         byte = static_cast<uint8_t>(byte | add);
-        writeUnsignedBits(byte, 8);
+        auto result = writeUnsignedBits(byte, 8);
+        if (result.isError())
+        {
+            return result;
+        }
     }
+    return Result<void>::success();
 }
 
-inline void BitStreamWriter::throwInsufficientCapacityException() const
-{
-    throw InsufficientCapacityException("BitStreamWriter: Reached end of bit buffer!");
-}
-
-inline void BitStreamWriter::checkCapacity(size_t bitSize) const
+inline Result<void> BitStreamWriter::checkCapacity(size_t bitSize) const noexcept
 {
     if (bitSize > m_bufferBitSize)
     {
-        throwInsufficientCapacityException();
+        return Result<void>::error(ErrorCode::BufferOverflow);
     }
+    return Result<void>::success();
 }
 
 } // namespace zserio

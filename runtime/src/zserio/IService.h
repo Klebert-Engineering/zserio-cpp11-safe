@@ -1,6 +1,7 @@
 #ifndef ZSERIO_ISERVICE_H_INC
 #define ZSERIO_ISERVICE_H_INC
 
+#include "zserio/Result.h"
 #include "zserio/Span.h"
 #include "zserio/StringView.h"
 #include "zserio/Types.h"
@@ -225,12 +226,10 @@ public:
      * \param requestData Request data to be passed to the method.
      * \param context Context specific for particular service or nullptr in case of no context.
      *
-     * \return Created response data.
-     *
-     * \throw ServiceException if the call fails.
+     * \return Result containing created response data or error code on failure.
      */
-    virtual IBasicServiceDataPtr<ALLOC> callMethod(
-            StringView methodName, Span<const uint8_t> requestData, void* context) = 0;
+    virtual Result<IBasicServiceDataPtr<ALLOC>> callMethod(
+            StringView methodName, Span<const uint8_t> requestData, void* context) noexcept = 0;
 };
 
 /**
@@ -249,12 +248,10 @@ public:
      * \param requestData Request data to be passed to the method.
      * \param context Context specific for particular service or nullptr in case of no context.
      *
-     * \return Created response data as bytes.
-     *
-     * \throw ServiceException if the call fails.
+     * \return Result containing created response data as bytes or error code on failure.
      */
-    virtual vector<uint8_t, ALLOC> callMethod(
-            StringView methodName, const IBasicServiceData<ALLOC>& requestData, void* context) = 0;
+    virtual Result<vector<uint8_t, ALLOC>> callMethod(
+            StringView methodName, const IBasicServiceData<ALLOC>& requestData, void* context) noexcept = 0;
 };
 
 /** Typedef to service interface provided for convenience - using default std::allocator<uint8_t>. */

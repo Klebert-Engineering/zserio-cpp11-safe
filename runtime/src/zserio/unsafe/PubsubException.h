@@ -1,7 +1,7 @@
 #ifndef ZSERIO_PUBSUB_EXCEPTION_H_INC
 #define ZSERIO_PUBSUB_EXCEPTION_H_INC
 
-#include "zserio/CppRuntimeException.h"
+#include "zserio/unsafe/CppRuntimeException.h"
 
 namespace zserio
 {

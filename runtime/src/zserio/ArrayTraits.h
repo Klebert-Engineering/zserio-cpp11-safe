@@ -10,6 +10,8 @@
 #include "zserio/BitStreamReader.h"
 #include "zserio/BitStreamWriter.h"
 #include "zserio/DeltaContext.h"
+#include "zserio/ErrorCode.h"
+#include "zserio/Result.h"
 #include "zserio/Enums.h"
 #include "zserio/SizeConvertUtil.h"
 #include "zserio/Traits.h"
@@ -21,105 +23,125 @@ namespace detail
 {
 
 template <typename T>
-T read_bits(BitStreamReader& in, uint8_t numBits);
+Result<T> read_bits(BitStreamReader& in, uint8_t numBits) noexcept;
 
 template <>
-inline int8_t read_bits<int8_t>(BitStreamReader& in, uint8_t numBits)
+inline Result<int8_t> read_bits<int8_t>(BitStreamReader& in, uint8_t numBits) noexcept
 {
-    return static_cast<int8_t>(in.readSignedBits(numBits));
+    auto result = in.readSignedBits(numBits);
+    if (result.isError())
+    {
+        return Result<int8_t>::error(result.getError());
+    }
+    return Result<int8_t>::success(static_cast<int8_t>(result.getValue()));
 }
 
 template <>
-inline int16_t read_bits<int16_t>(BitStreamReader& in, uint8_t numBits)
+inline Result<int16_t> read_bits<int16_t>(BitStreamReader& in, uint8_t numBits) noexcept
 {
-    return static_cast<int16_t>(in.readSignedBits(numBits));
+    auto result = in.readSignedBits(numBits);
+    if (result.isError())
+    {
+        return Result<int16_t>::error(result.getError());
+    }
+    return Result<int16_t>::success(static_cast<int16_t>(result.getValue()));
 }
 
 template <>
-inline int32_t read_bits<int32_t>(BitStreamReader& in, uint8_t numBits)
+inline Result<int32_t> read_bits<int32_t>(BitStreamReader& in, uint8_t numBits) noexcept
 {
     return in.readSignedBits(numBits);
 }
 
 template <>
-inline int64_t read_bits<int64_t>(BitStreamReader& in, uint8_t numBits)
+inline Result<int64_t> read_bits<int64_t>(BitStreamReader& in, uint8_t numBits) noexcept
 {
     return in.readSignedBits64(numBits);
 }
 
 template <>
-inline uint8_t read_bits<uint8_t>(BitStreamReader& in, uint8_t numBits)
+inline Result<uint8_t> read_bits<uint8_t>(BitStreamReader& in, uint8_t numBits) noexcept
 {
-    return static_cast<uint8_t>(in.readBits(numBits));
+    auto result = in.readBits(numBits);
+    if (result.isError())
+    {
+        return Result<uint8_t>::error(result.getError());
+    }
+    return Result<uint8_t>::success(static_cast<uint8_t>(result.getValue()));
 }
 
 template <>
-inline uint16_t read_bits<uint16_t>(BitStreamReader& in, uint8_t numBits)
+inline Result<uint16_t> read_bits<uint16_t>(BitStreamReader& in, uint8_t numBits) noexcept
 {
-    return static_cast<uint16_t>(in.readBits(numBits));
+    auto result = in.readBits(numBits);
+    if (result.isError())
+    {
+        return Result<uint16_t>::error(result.getError());
+    }
+    return Result<uint16_t>::success(static_cast<uint16_t>(result.getValue()));
 }
 
 template <>
-inline uint32_t read_bits<uint32_t>(BitStreamReader& in, uint8_t numBits)
+inline Result<uint32_t> read_bits<uint32_t>(BitStreamReader& in, uint8_t numBits) noexcept
 {
     return in.readBits(numBits);
 }
 
 template <>
-inline uint64_t read_bits<uint64_t>(BitStreamReader& in, uint8_t numBits)
+inline Result<uint64_t> read_bits<uint64_t>(BitStreamReader& in, uint8_t numBits) noexcept
 {
     return in.readBits64(numBits);
 }
 
 template <typename T>
-void write_bits(BitStreamWriter& out, T value, uint8_t numBits);
+Result<void> write_bits(BitStreamWriter& out, T value, uint8_t numBits) noexcept;
 
 template <>
-inline void write_bits<int8_t>(BitStreamWriter& out, int8_t value, uint8_t numBits)
+inline Result<void> write_bits<int8_t>(BitStreamWriter& out, int8_t value, uint8_t numBits) noexcept
 {
-    out.writeSignedBits(static_cast<int32_t>(value), numBits);
+    return out.writeSignedBits(static_cast<int32_t>(value), numBits);
 }
 
 template <>
-inline void write_bits<int16_t>(BitStreamWriter& out, int16_t value, uint8_t numBits)
+inline Result<void> write_bits<int16_t>(BitStreamWriter& out, int16_t value, uint8_t numBits) noexcept
 {
-    out.writeSignedBits(static_cast<int32_t>(value), numBits);
+    return out.writeSignedBits(static_cast<int32_t>(value), numBits);
 }
 
 template <>
-inline void write_bits<int32_t>(BitStreamWriter& out, int32_t value, uint8_t numBits)
+inline Result<void> write_bits<int32_t>(BitStreamWriter& out, int32_t value, uint8_t numBits) noexcept
 {
-    out.writeSignedBits(value, numBits);
+    return out.writeSignedBits(value, numBits);
 }
 
 template <>
-inline void write_bits<int64_t>(BitStreamWriter& out, int64_t value, uint8_t numBits)
+inline Result<void> write_bits<int64_t>(BitStreamWriter& out, int64_t value, uint8_t numBits) noexcept
 {
-    out.writeSignedBits64(value, numBits);
+    return out.writeSignedBits64(value, numBits);
 }
 
 template <>
-inline void write_bits<uint8_t>(BitStreamWriter& out, uint8_t value, uint8_t numBits)
+inline Result<void> write_bits<uint8_t>(BitStreamWriter& out, uint8_t value, uint8_t numBits) noexcept
 {
-    out.writeBits(static_cast<uint32_t>(value), numBits);
+    return out.writeBits(static_cast<uint32_t>(value), numBits);
 }
 
 template <>
-inline void write_bits<uint16_t>(BitStreamWriter& out, uint16_t value, uint8_t numBits)
+inline Result<void> write_bits<uint16_t>(BitStreamWriter& out, uint16_t value, uint8_t numBits) noexcept
 {
-    out.writeBits(static_cast<uint32_t>(value), numBits);
+    return out.writeBits(static_cast<uint32_t>(value), numBits);
 }
 
 template <>
-inline void write_bits<uint32_t>(BitStreamWriter& out, uint32_t value, uint8_t numBits)
+inline Result<void> write_bits<uint32_t>(BitStreamWriter& out, uint32_t value, uint8_t numBits) noexcept
 {
-    out.writeBits(value, numBits);
+    return out.writeBits(value, numBits);
 }
 
 template <>
-inline void write_bits<uint64_t>(BitStreamWriter& out, uint64_t value, uint8_t numBits)
+inline Result<void> write_bits<uint64_t>(BitStreamWriter& out, uint64_t value, uint8_t numBits) noexcept
 {
-    out.writeBits64(value, numBits);
+    return out.writeBits64(value, numBits);
 }
 
 } // namespace detail
@@ -142,9 +164,9 @@ public:
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf()
+    static Result<size_t> bitSizeOf()
     {
-        return NUM_BITS;
+        return Result<size_t>::success(NUM_BITS);
     }
 
     /**
@@ -152,7 +174,7 @@ public:
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType)
+    static Result<size_t> bitSizeOf(ElementType)
     {
         return bitSizeOf();
     }
@@ -162,7 +184,7 @@ public:
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType)
+    static Result<size_t> bitSizeOf(size_t, ElementType)
     {
         return bitSizeOf();
     }
@@ -174,9 +196,9 @@ public:
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType)
     {
-        return bitPosition + NUM_BITS;
+        return Result<size_t>::success(bitPosition + NUM_BITS);
     }
 
     /**
@@ -186,7 +208,7 @@ public:
      *
      * \return Read element.
      */
-    static ElementType read(BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(BitStreamReader& in, size_t = 0) noexcept
     {
         return detail::read_bits<T>(in, NUM_BITS);
     }
@@ -197,9 +219,9 @@ public:
      * \param out Bit stream writer to use.
      * \param element Element to write.
      */
-    static void write(BitStreamWriter& out, ElementType element)
+    static Result<void> write(BitStreamWriter& out, ElementType element) noexcept
     {
-        detail::write_bits(out, element, NUM_BITS);
+        return detail::write_bits(out, element, NUM_BITS);
     }
 
     /** Determines whether the bit size of the single element is constant. */
@@ -224,9 +246,9 @@ public:
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf()
+    static Result<size_t> bitSizeOf()
     {
-        return ELEMENT_BIT_SIZE::get();
+        return Result<size_t>::success(ELEMENT_BIT_SIZE::get());
     }
 
     /**
@@ -234,7 +256,7 @@ public:
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType)
+    static Result<size_t> bitSizeOf(ElementType)
     {
         return bitSizeOf();
     }
@@ -244,7 +266,7 @@ public:
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType)
+    static Result<size_t> bitSizeOf(size_t, ElementType)
     {
         return bitSizeOf();
     }
@@ -256,9 +278,14 @@ public:
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType)
     {
-        return bitPosition + bitSizeOf();
+        auto sizeResult = bitSizeOf();
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -268,7 +295,7 @@ public:
      *
      * \return Read element.
      */
-    static ElementType read(BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(BitStreamReader& in, size_t = 0) noexcept
     {
         return detail::read_bits<T>(in, ELEMENT_BIT_SIZE::get());
     }
@@ -279,9 +306,9 @@ public:
      * \param out Bit stream writer to use.
      * \param element Element to write.
      */
-    static void write(BitStreamWriter& out, ElementType element)
+    static Result<void> write(BitStreamWriter& out, ElementType element) noexcept
     {
-        detail::write_bits(out, element, ELEMENT_BIT_SIZE::get());
+        return detail::write_bits(out, element, ELEMENT_BIT_SIZE::get());
     }
 
     /** Determines whether the bit size of the single element is constant. */
@@ -312,9 +339,9 @@ public:
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(const OwnerType& owner)
+    static Result<size_t> bitSizeOf(const OwnerType& owner)
     {
-        return ELEMENT_BIT_SIZE::get(owner);
+        return Result<size_t>::success(ELEMENT_BIT_SIZE::get(owner));
     }
 
     /**
@@ -324,7 +351,7 @@ public:
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(const OwnerType& owner, ElementType)
+    static Result<size_t> bitSizeOf(const OwnerType& owner, ElementType)
     {
         return bitSizeOf(owner);
     }
@@ -336,7 +363,7 @@ public:
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(const OwnerType& owner, size_t, ElementType)
+    static Result<size_t> bitSizeOf(const OwnerType& owner, size_t, ElementType)
     {
         return bitSizeOf(owner);
     }
@@ -349,9 +376,14 @@ public:
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(const OwnerType& owner, size_t bitPosition, ElementType)
+    static Result<size_t> initializeOffsets(const OwnerType& owner, size_t bitPosition, ElementType)
     {
-        return bitPosition + bitSizeOf(owner);
+        auto sizeResult = bitSizeOf(owner);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -362,7 +394,7 @@ public:
      *
      * \return Read element.
      */
-    static ElementType read(const OwnerType& owner, BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(const OwnerType& owner, BitStreamReader& in, size_t = 0)
     {
         return detail::read_bits<T>(in, ELEMENT_BIT_SIZE::get(owner));
     }
@@ -374,9 +406,9 @@ public:
      * \param out Bit stream writer to use.
      * \param element Element to write.
      */
-    static void write(const OwnerType& owner, BitStreamWriter& out, ElementType element)
+    static Result<void> write(const OwnerType& owner, BitStreamWriter& out, ElementType element) noexcept
     {
-        detail::write_bits(out, element, ELEMENT_BIT_SIZE::get(owner));
+        return detail::write_bits(out, element, ELEMENT_BIT_SIZE::get(owner));
     }
 
     /** Determines whether the bit size of the single element is constant. */
@@ -397,9 +429,9 @@ struct StdIntArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf()
+    static Result<size_t> bitSizeOf()
     {
-        return NUM_BITS;
+        return Result<size_t>::success(NUM_BITS);
     }
 
     /**
@@ -407,7 +439,7 @@ struct StdIntArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType)
+    static Result<size_t> bitSizeOf(ElementType)
     {
         return bitSizeOf();
     }
@@ -417,7 +449,7 @@ struct StdIntArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType)
+    static Result<size_t> bitSizeOf(size_t, ElementType)
     {
         return bitSizeOf();
     }
@@ -429,9 +461,9 @@ struct StdIntArrayTraits
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType)
     {
-        return bitPosition + NUM_BITS;
+        return Result<size_t>::success(bitPosition + NUM_BITS);
     }
 
     /**
@@ -441,7 +473,7 @@ struct StdIntArrayTraits
      *
      * \return Read element.
      */
-    static ElementType read(BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(BitStreamReader& in, size_t = 0) noexcept
     {
         return detail::read_bits<T>(in, NUM_BITS);
     }
@@ -452,9 +484,9 @@ struct StdIntArrayTraits
      * \param out Bit stream writer to use.
      * \param element Element to write.
      */
-    static void write(BitStreamWriter& out, ElementType element)
+    static Result<void> write(BitStreamWriter& out, ElementType element) noexcept
     {
-        detail::write_bits(out, element, NUM_BITS);
+        return detail::write_bits(out, element, NUM_BITS);
     }
 
     /** Determines whether the bit size of the single element is constant. */
@@ -486,7 +518,7 @@ struct VarIntNNArrayTraits<int16_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType element)
+    static Result<size_t> bitSizeOf(ElementType element)
     {
         return zserio::bitSizeOfVarInt16(element);
     }
@@ -498,7 +530,7 @@ struct VarIntNNArrayTraits<int16_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType element)
+    static Result<size_t> bitSizeOf(size_t, ElementType element)
     {
         return bitSizeOf(element);
     }
@@ -511,9 +543,14 @@ struct VarIntNNArrayTraits<int16_t>
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -521,9 +558,9 @@ struct VarIntNNArrayTraits<int16_t>
      *
      * \param in Bit stream reader.
      *
-     * \return Read element.
+     * \return Read element or error.
      */
-    static ElementType read(BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(BitStreamReader& in, size_t = 0) noexcept
     {
         return in.readVarInt16();
     }
@@ -533,10 +570,12 @@ struct VarIntNNArrayTraits<int16_t>
      *
      * \param out Bit stream writer to use.
      * \param element Element to write.
+     *
+     * \return Success or error code.
      */
-    static void write(BitStreamWriter& out, ElementType element)
+    static Result<void> write(BitStreamWriter& out, ElementType element) noexcept
     {
-        out.writeVarInt16(element);
+        return out.writeVarInt16(element);
     }
 
     /** Determines whether the bit size of the single element is constant. */
@@ -559,7 +598,7 @@ struct VarIntNNArrayTraits<int32_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType element)
+    static Result<size_t> bitSizeOf(ElementType element)
     {
         return zserio::bitSizeOfVarInt32(element);
     }
@@ -571,7 +610,7 @@ struct VarIntNNArrayTraits<int32_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType element)
+    static Result<size_t> bitSizeOf(size_t, ElementType element)
     {
         return bitSizeOf(element);
     }
@@ -584,9 +623,14 @@ struct VarIntNNArrayTraits<int32_t>
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -596,7 +640,7 @@ struct VarIntNNArrayTraits<int32_t>
      *
      * \return Read element.
      */
-    static ElementType read(BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(BitStreamReader& in, size_t = 0) noexcept
     {
         return in.readVarInt32();
     }
@@ -607,9 +651,9 @@ struct VarIntNNArrayTraits<int32_t>
      * \param out Bit stream writer to use.
      * \param element Element to write.
      */
-    static void write(BitStreamWriter& out, ElementType element)
+    static Result<void> write(BitStreamWriter& out, ElementType element) noexcept
     {
-        out.writeVarInt32(element);
+        return out.writeVarInt32(element);
     }
 
     /** Determines whether the bit size of the single element is constant. */
@@ -632,7 +676,7 @@ struct VarIntNNArrayTraits<int64_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType element)
+    static Result<size_t> bitSizeOf(ElementType element)
     {
         return zserio::bitSizeOfVarInt64(element);
     }
@@ -644,7 +688,7 @@ struct VarIntNNArrayTraits<int64_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType element)
+    static Result<size_t> bitSizeOf(size_t, ElementType element)
     {
         return bitSizeOf(element);
     }
@@ -657,9 +701,14 @@ struct VarIntNNArrayTraits<int64_t>
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -669,7 +718,7 @@ struct VarIntNNArrayTraits<int64_t>
      *
      * \return Read element.
      */
-    static ElementType read(BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(BitStreamReader& in, size_t = 0) noexcept
     {
         return in.readVarInt64();
     }
@@ -680,9 +729,9 @@ struct VarIntNNArrayTraits<int64_t>
      * \param out Bit stream writer to use.
      * \param element Element to write.
      */
-    static void write(BitStreamWriter& out, ElementType element)
+    static Result<void> write(BitStreamWriter& out, ElementType element) noexcept
     {
-        out.writeVarInt64(element);
+        return out.writeVarInt64(element);
     }
 
     /** Determines whether the bit size of the single element is constant. */
@@ -705,7 +754,7 @@ struct VarIntNNArrayTraits<uint16_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType element)
+    static Result<size_t> bitSizeOf(ElementType element)
     {
         return zserio::bitSizeOfVarUInt16(element);
     }
@@ -717,7 +766,7 @@ struct VarIntNNArrayTraits<uint16_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType element)
+    static Result<size_t> bitSizeOf(size_t, ElementType element)
     {
         return bitSizeOf(element);
     }
@@ -730,9 +779,14 @@ struct VarIntNNArrayTraits<uint16_t>
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -742,7 +796,7 @@ struct VarIntNNArrayTraits<uint16_t>
      *
      * \return Read element.
      */
-    static ElementType read(BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(BitStreamReader& in, size_t = 0) noexcept
     {
         return in.readVarUInt16();
     }
@@ -753,9 +807,9 @@ struct VarIntNNArrayTraits<uint16_t>
      * \param out Bit stream writer to use.
      * \param element Element to write.
      */
-    static void write(BitStreamWriter& out, ElementType element)
+    static Result<void> write(BitStreamWriter& out, ElementType element) noexcept
     {
-        out.writeVarUInt16(element);
+        return out.writeVarUInt16(element);
     }
 
     /** Determines whether the bit size of the single element is constant. */
@@ -778,7 +832,7 @@ struct VarIntNNArrayTraits<uint32_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType element)
+    static Result<size_t> bitSizeOf(ElementType element)
     {
         return zserio::bitSizeOfVarUInt32(element);
     }
@@ -790,7 +844,7 @@ struct VarIntNNArrayTraits<uint32_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType element)
+    static Result<size_t> bitSizeOf(size_t, ElementType element)
     {
         return bitSizeOf(element);
     }
@@ -803,9 +857,14 @@ struct VarIntNNArrayTraits<uint32_t>
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -815,7 +874,7 @@ struct VarIntNNArrayTraits<uint32_t>
      *
      * \return Read element.
      */
-    static ElementType read(BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(BitStreamReader& in, size_t = 0) noexcept
     {
         return in.readVarUInt32();
     }
@@ -826,9 +885,9 @@ struct VarIntNNArrayTraits<uint32_t>
      * \param out Bit stream writer to use.
      * \param element Element to write.
      */
-    static void write(BitStreamWriter& out, ElementType element)
+    static Result<void> write(BitStreamWriter& out, ElementType element) noexcept
     {
-        out.writeVarUInt32(element);
+        return out.writeVarUInt32(element);
     }
 
     /** Determines whether the bit size of the single element is constant. */
@@ -851,7 +910,7 @@ struct VarIntNNArrayTraits<uint64_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType element)
+    static Result<size_t> bitSizeOf(ElementType element)
     {
         return zserio::bitSizeOfVarUInt64(element);
     }
@@ -863,7 +922,7 @@ struct VarIntNNArrayTraits<uint64_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType element)
+    static Result<size_t> bitSizeOf(size_t, ElementType element)
     {
         return bitSizeOf(element);
     }
@@ -876,9 +935,14 @@ struct VarIntNNArrayTraits<uint64_t>
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -888,7 +952,7 @@ struct VarIntNNArrayTraits<uint64_t>
      *
      * \return Read element.
      */
-    static ElementType read(BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(BitStreamReader& in, size_t = 0) noexcept
     {
         return in.readVarUInt64();
     }
@@ -899,9 +963,9 @@ struct VarIntNNArrayTraits<uint64_t>
      * \param out Bit stream writer to use.
      * \param element Element to write.
      */
-    static void write(BitStreamWriter& out, ElementType element)
+    static Result<void> write(BitStreamWriter& out, ElementType element) noexcept
     {
-        out.writeVarUInt64(element);
+        return out.writeVarUInt64(element);
     }
 
     /** Determines whether the bit size of the single element is constant. */
@@ -930,7 +994,7 @@ struct VarIntArrayTraits<int64_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType element)
+    static Result<size_t> bitSizeOf(ElementType element)
     {
         return zserio::bitSizeOfVarInt(element);
     }
@@ -942,7 +1006,7 @@ struct VarIntArrayTraits<int64_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType element)
+    static Result<size_t> bitSizeOf(size_t, ElementType element)
     {
         return bitSizeOf(element);
     }
@@ -955,9 +1019,14 @@ struct VarIntArrayTraits<int64_t>
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -967,7 +1036,7 @@ struct VarIntArrayTraits<int64_t>
      *
      * \return Read element.
      */
-    static ElementType read(BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(BitStreamReader& in, size_t = 0) noexcept
     {
         return in.readVarInt();
     }
@@ -978,9 +1047,9 @@ struct VarIntArrayTraits<int64_t>
      * \param out Bit stream writer to use.
      * \param element Element to write.
      */
-    static void write(BitStreamWriter& out, ElementType element)
+    static Result<void> write(BitStreamWriter& out, ElementType element) noexcept
     {
-        out.writeVarInt(element);
+        return out.writeVarInt(element);
     }
 
     /** Determines whether the bit size of the single element is constant. */
@@ -1003,7 +1072,7 @@ struct VarIntArrayTraits<uint64_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType element)
+    static Result<size_t> bitSizeOf(ElementType element)
     {
         return zserio::bitSizeOfVarUInt(element);
     }
@@ -1015,7 +1084,7 @@ struct VarIntArrayTraits<uint64_t>
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType element)
+    static Result<size_t> bitSizeOf(size_t, ElementType element)
     {
         return bitSizeOf(element);
     }
@@ -1028,9 +1097,14 @@ struct VarIntArrayTraits<uint64_t>
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -1040,7 +1114,7 @@ struct VarIntArrayTraits<uint64_t>
      *
      * \return Read element.
      */
-    static ElementType read(BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(BitStreamReader& in, size_t = 0) noexcept
     {
         return in.readVarUInt();
     }
@@ -1051,9 +1125,9 @@ struct VarIntArrayTraits<uint64_t>
      * \param out Bit stream writer to use.
      * \param element Element to write.
      */
-    static void write(BitStreamWriter& out, ElementType element)
+    static Result<void> write(BitStreamWriter& out, ElementType element) noexcept
     {
-        out.writeVarUInt(element);
+        return out.writeVarUInt(element);
     }
 
     /** Determines whether the bit size of the single element is constant. */
@@ -1075,7 +1149,7 @@ struct VarSizeArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(ElementType element)
+    static Result<size_t> bitSizeOf(ElementType element)
     {
         return zserio::bitSizeOfVarSize(element);
     }
@@ -1087,7 +1161,7 @@ struct VarSizeArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType element)
+    static Result<size_t> bitSizeOf(size_t, ElementType element)
     {
         return bitSizeOf(element);
     }
@@ -1100,9 +1174,14 @@ struct VarSizeArrayTraits
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -1112,7 +1191,7 @@ struct VarSizeArrayTraits
      *
      * \return Read element.
      */
-    static ElementType read(BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(BitStreamReader& in, size_t = 0) noexcept
     {
         return in.readVarSize();
     }
@@ -1123,9 +1202,9 @@ struct VarSizeArrayTraits
      * \param out Bit stream writer to use.
      * \param element Element to write
      */
-    static void write(BitStreamWriter& out, ElementType element)
+    static Result<void> write(BitStreamWriter& out, ElementType element) noexcept
     {
-        out.writeVarSize(element);
+        return out.writeVarSize(element);
     }
 
     /** Determines whether the bit size of the single element is constant. */
@@ -1145,9 +1224,9 @@ struct Float16ArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf()
+    static Result<size_t> bitSizeOf()
     {
-        return 16;
+        return Result<size_t>::success(16);
     }
 
     /**
@@ -1155,7 +1234,7 @@ struct Float16ArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType)
+    static Result<size_t> bitSizeOf(size_t, ElementType)
     {
         return bitSizeOf();
     }
@@ -1168,9 +1247,14 @@ struct Float16ArrayTraits
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -1180,7 +1264,7 @@ struct Float16ArrayTraits
      *
      * \return Read element.
      */
-    static ElementType read(BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(BitStreamReader& in, size_t = 0) noexcept
     {
         return in.readFloat16();
     }
@@ -1191,9 +1275,9 @@ struct Float16ArrayTraits
      * \param out Bit stream writer to use.
      * \param element Element to write.
      */
-    static void write(BitStreamWriter& out, ElementType element)
+    static Result<void> write(BitStreamWriter& out, ElementType element) noexcept
     {
-        out.writeFloat16(element);
+        return out.writeFloat16(element);
     }
 
     /** Determines whether the bit size of the single element is constant. */
@@ -1213,9 +1297,9 @@ struct Float32ArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf()
+    static Result<size_t> bitSizeOf()
     {
-        return 32;
+        return Result<size_t>::success(32);
     }
 
     /**
@@ -1223,7 +1307,7 @@ struct Float32ArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType)
+    static Result<size_t> bitSizeOf(size_t, ElementType)
     {
         return bitSizeOf();
     }
@@ -1236,9 +1320,14 @@ struct Float32ArrayTraits
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -1248,7 +1337,7 @@ struct Float32ArrayTraits
      *
      * \return Read element.
      */
-    static ElementType read(BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(BitStreamReader& in, size_t = 0) noexcept
     {
         return in.readFloat32();
     }
@@ -1259,9 +1348,9 @@ struct Float32ArrayTraits
      * \param out Bit stream writer to use.
      * \param element Element to write.
      */
-    static void write(BitStreamWriter& out, ElementType element)
+    static Result<void> write(BitStreamWriter& out, ElementType element) noexcept
     {
-        out.writeFloat32(element);
+        return out.writeFloat32(element);
     }
 
     /** Determines whether the bit size of the single element is constant. */
@@ -1281,9 +1370,9 @@ struct Float64ArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf()
+    static Result<size_t> bitSizeOf()
     {
-        return 64;
+        return Result<size_t>::success(64);
     }
 
     /**
@@ -1291,7 +1380,7 @@ struct Float64ArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType)
+    static Result<size_t> bitSizeOf(size_t, ElementType)
     {
         return bitSizeOf();
     }
@@ -1304,9 +1393,14 @@ struct Float64ArrayTraits
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -1316,7 +1410,7 @@ struct Float64ArrayTraits
      *
      * \return Read element.
      */
-    static ElementType read(BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(BitStreamReader& in, size_t = 0) noexcept
     {
         return in.readFloat64();
     }
@@ -1327,9 +1421,9 @@ struct Float64ArrayTraits
      * \param out Bit stream writer to use.
      * \param element Element to write.
      */
-    static void write(BitStreamWriter& out, ElementType element)
+    static Result<void> write(BitStreamWriter& out, ElementType element) noexcept
     {
-        out.writeFloat64(element);
+        return out.writeFloat64(element);
     }
 
     /** Determines whether the bit size of the single element is constant. */
@@ -1349,9 +1443,9 @@ struct BoolArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf()
+    static Result<size_t> bitSizeOf()
     {
-        return 1;
+        return Result<size_t>::success(1);
     }
 
     /**
@@ -1359,7 +1453,7 @@ struct BoolArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType)
+    static Result<size_t> bitSizeOf(size_t, ElementType)
     {
         return bitSizeOf();
     }
@@ -1372,9 +1466,14 @@ struct BoolArrayTraits
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -1384,7 +1483,7 @@ struct BoolArrayTraits
      *
      * \return Read element.
      */
-    static ElementType read(BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(BitStreamReader& in, size_t = 0) noexcept
     {
         return in.readBool();
     }
@@ -1395,9 +1494,9 @@ struct BoolArrayTraits
      * \param out Bit stream writer to use.
      * \param element Element to write.
      */
-    static void write(BitStreamWriter& out, ElementType element)
+    static Result<void> write(BitStreamWriter& out, ElementType element) noexcept
     {
-        out.writeBool(element);
+        return out.writeBool(element);
     }
 
     /** Determines whether the bit size of the single element is constant. */
@@ -1436,9 +1535,14 @@ struct BasicBytesArrayTraits
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, const ElementType& element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, const ElementType& element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -1448,9 +1552,15 @@ struct BasicBytesArrayTraits
      * \param in Bit stream reader.
      */
     template <typename RAW_ARRAY>
-    static void read(RAW_ARRAY& rawArray, BitStreamReader& in, size_t = 0)
+    static Result<void> read(RAW_ARRAY& rawArray, BitStreamReader& in, size_t = 0) noexcept
     {
-        rawArray.emplace_back(in.readBytes(rawArray.get_allocator()));
+        auto result = in.readBytes(rawArray.get_allocator());
+        if (result.isError())
+        {
+            return Result<void>::error(result.getError());
+        }
+        rawArray.emplace_back(result.moveValue());
+        return Result<void>::success();
     }
 
     /**
@@ -1459,9 +1569,9 @@ struct BasicBytesArrayTraits
      * \param out Bit stream writer to use.
      * \param element Element to write.
      */
-    static void write(BitStreamWriter& out, const ElementType& element)
+    static Result<void> write(BitStreamWriter& out, const ElementType& element) noexcept
     {
-        out.writeBytes(element);
+        return out.writeBytes(element);
     }
 
     /** Determines whether the bit size of the single element is constant. */
@@ -1502,9 +1612,14 @@ struct BasicStringArrayTraits
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, const ElementType& element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, const ElementType& element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -1514,9 +1629,15 @@ struct BasicStringArrayTraits
      * \param in Bit stream reader.
      */
     template <typename RAW_ARRAY>
-    static void read(RAW_ARRAY& rawArray, BitStreamReader& in, size_t = 0)
+    static Result<void> read(RAW_ARRAY& rawArray, BitStreamReader& in, size_t = 0) noexcept
     {
-        rawArray.emplace_back(in.readString(rawArray.get_allocator()));
+        auto result = in.readString(rawArray.get_allocator());
+        if (result.isError())
+        {
+            return Result<void>::error(result.getError());
+        }
+        rawArray.emplace_back(result.moveValue());
+        return Result<void>::success();
     }
 
     /**
@@ -1525,9 +1646,9 @@ struct BasicStringArrayTraits
      * \param out Bit stream writer to use.
      * \param element Element to write.
      */
-    static void write(BitStreamWriter& out, const ElementType& element)
+    static Result<void> write(BitStreamWriter& out, const ElementType& element) noexcept
     {
-        out.writeString(element);
+        return out.writeString(element);
     }
 
     /** Determines whether the bit size of the single element is constant. */
@@ -1568,9 +1689,14 @@ struct BasicBitBufferArrayTraits
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, const ElementType& element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, const ElementType& element)
     {
-        return bitPosition + bitSizeOf(bitPosition, element);
+        auto sizeResult = bitSizeOf(bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -1580,9 +1706,15 @@ struct BasicBitBufferArrayTraits
      * \param in Bit stream reader.
      */
     template <typename RAW_ARRAY>
-    static void read(RAW_ARRAY& rawArray, BitStreamReader& in, size_t = 0)
+    static Result<void> read(RAW_ARRAY& rawArray, BitStreamReader& in, size_t = 0) noexcept
     {
-        rawArray.emplace_back(in.readBitBuffer(rawArray.get_allocator()));
+        auto result = in.readBitBuffer(rawArray.get_allocator());
+        if (result.isError())
+        {
+            return Result<void>::error(result.getError());
+        }
+        rawArray.emplace_back(result.moveValue());
+        return Result<void>::success();
     }
 
     /**
@@ -1591,9 +1723,9 @@ struct BasicBitBufferArrayTraits
      * \param out Bit stream writer to use.
      * \param element Element to write.
      */
-    static void write(BitStreamWriter& out, const ElementType& element)
+    static Result<void> write(BitStreamWriter& out, const ElementType& element) noexcept
     {
-        out.writeBitBuffer(element);
+        return out.writeBitBuffer(element);
     }
 
     /** Determines whether the bit size of the single element is constant. */
@@ -1631,7 +1763,7 @@ struct EnumArrayTraits
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(size_t bitPosition, ElementType element)
     {
         return zserio::initializeOffsets(bitPosition, element);
     }
@@ -1643,7 +1775,7 @@ struct EnumArrayTraits
      *
      * \return Read element.
      */
-    static ElementType read(BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(BitStreamReader& in, size_t = 0) noexcept
     {
         return zserio::read<ElementType>(in);
     }
@@ -1654,9 +1786,9 @@ struct EnumArrayTraits
      * \param out Bit stream writer to use.
      * \param element Element to write.
      */
-    static void write(BitStreamWriter& out, ElementType element)
+    static Result<void> write(BitStreamWriter& out, ElementType element) noexcept
     {
-        zserio::write(out, element);
+        return zserio::write(out, element);
     }
 
     // Be aware that T can be varuint, so bitSizeOf cannot return constant value.
@@ -1680,7 +1812,7 @@ struct BitmaskArrayTraits
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(size_t, ElementType element)
+    static Result<size_t> bitSizeOf(size_t, ElementType element)
     {
         return element.bitSizeOf();
     }
@@ -1705,7 +1837,7 @@ struct BitmaskArrayTraits
      *
      * \return Read element.
      */
-    static ElementType read(BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(BitStreamReader& in, size_t = 0) noexcept
     {
         return ElementType(in);
     }
@@ -1716,9 +1848,9 @@ struct BitmaskArrayTraits
      * \param out Bit stream writer to use.
      * \param element Element to write.
      */
-    static void write(BitStreamWriter& out, ElementType element)
+    static Result<void> write(BitStreamWriter& out, ElementType element) noexcept
     {
-        element.write(out);
+        return element.write(out);
     }
 
     // Be aware that T can be varuint, so bitSizeOf cannot return constant value.
@@ -1750,7 +1882,7 @@ public:
      *
      * \return Bit size of the array element.
      */
-    static size_t bitSizeOf(const OwnerType&, size_t bitPosition, const ElementType& element)
+    static Result<size_t> bitSizeOf(const OwnerType&, size_t bitPosition, const ElementType& element)
     {
         return element.bitSizeOf(bitPosition);
     }
@@ -1763,7 +1895,7 @@ public:
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(OwnerType&, size_t bitPosition, ElementType& element)
+    static Result<size_t> initializeOffsets(OwnerType&, size_t bitPosition, ElementType& element)
     {
         return element.initializeOffsets(bitPosition);
     }
@@ -1775,11 +1907,13 @@ public:
      * \param rawArray Raw array to use.
      * \param in Bit stream reader.
      * \param index Index need in case of parameterized type which depends on the current index.
+     *
+     * \return Success or error code.
      */
     template <typename RAW_ARRAY>
-    static void read(OwnerType& owner, RAW_ARRAY& rawArray, BitStreamReader& in, size_t index)
+    static Result<void> read(OwnerType& owner, RAW_ARRAY& rawArray, BitStreamReader& in, size_t index) noexcept
     {
-        ELEMENT_FACTORY::create(owner, rawArray, in, index);
+        return ELEMENT_FACTORY::create(owner, rawArray, in, index);
     }
 
     /**
@@ -1788,9 +1922,9 @@ public:
      * \param out Bit stream writer to use.
      * \param element Element to write.
      */
-    static void write(const OwnerType&, BitStreamWriter& out, const ElementType& element)
+    static Result<void> write(const OwnerType&, BitStreamWriter& out, const ElementType& element) noexcept
     {
-        element.write(out);
+        return element.write(out);
     }
 
     /** Determines whether the bit size of the single element is constant. */
@@ -1864,9 +1998,14 @@ public:
      *
      * \return Updated bit stream position which points to the first bit after this element.
      */
-    static size_t initializeOffsets(DeltaContext& deltaContext, size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(DeltaContext& deltaContext, size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(deltaContext, bitPosition, element);
+        auto sizeResult = bitSizeOf(deltaContext, bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -1877,9 +2016,9 @@ public:
      * \param deltaContext Delta context.
      * \param in Bit stream reader.
      *
-     * \return Read element value.
+     * \return Read element value or error.
      */
-    static ElementType read(DeltaContext& deltaContext, BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(DeltaContext& deltaContext, BitStreamReader& in, size_t = 0) noexcept
     {
         return deltaContext.template read<ArrayTraits>(in);
     }
@@ -1892,10 +2031,12 @@ public:
      * \param deltaContext Delta context.
      * \param out Bit stream writer.
      * \param element Element to write.
+     *
+     * \return Success or error code.
      */
-    static void write(DeltaContext& deltaContext, BitStreamWriter& out, ElementType element)
+    static Result<void> write(DeltaContext& deltaContext, BitStreamWriter& out, ElementType element) noexcept
     {
-        deltaContext.template write<ArrayTraits>(out, element);
+        return deltaContext.template write<ArrayTraits>(out, element);
     }
 };
 
@@ -1942,7 +2083,7 @@ public:
      *
      * \return Length of the array element stored in the bit stream in bits.
      */
-    static size_t bitSizeOf(const OwnerType& owner, DeltaContext& deltaContext, size_t, ElementType element)
+    static Result<size_t> bitSizeOf(const OwnerType& owner, DeltaContext& deltaContext, size_t, ElementType element)
     {
         return deltaContext.template bitSizeOf<ArrayTraits>(owner, element);
     }
@@ -1959,10 +2100,15 @@ public:
      *
      * \return Updated bit stream position which points to the first bit after this element.
      */
-    static size_t initializeOffsets(
+    static Result<size_t> initializeOffsets(
             const OwnerType& owner, DeltaContext& deltaContext, size_t bitPosition, ElementType element)
     {
-        return bitPosition + bitSizeOf(owner, deltaContext, bitPosition, element);
+        auto sizeResult = bitSizeOf(owner, deltaContext, bitPosition, element);
+        if (!sizeResult.isSuccess())
+        {
+            return sizeResult;
+        }
+        return Result<size_t>::success(bitPosition + sizeResult.getValue());
     }
 
     /**
@@ -1974,9 +2120,9 @@ public:
      * \param deltaContext Delta context.
      * \param in Bit stream reader.
      *
-     * \return Read element value.
+     * \return Read element value or error.
      */
-    static ElementType read(const OwnerType& owner, DeltaContext& deltaContext, BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(const OwnerType& owner, DeltaContext& deltaContext, BitStreamReader& in, size_t = 0) noexcept
     {
         return deltaContext.template read<ArrayTraits>(owner, in);
     }
@@ -1990,11 +2136,13 @@ public:
      * \param deltaContext Delta context.
      * \param out Bit stream writer.
      * \param element Element to write.
+     *
+     * \return Success or error code.
      */
-    static void write(
-            const OwnerType& owner, DeltaContext& deltaContext, BitStreamWriter& out, ElementType element)
+    static Result<void> write(
+            const OwnerType& owner, DeltaContext& deltaContext, BitStreamWriter& out, ElementType element) noexcept
     {
-        deltaContext.template write<ArrayTraits>(owner, out, element);
+        return deltaContext.template write<ArrayTraits>(owner, out, element);
     }
 };
 
@@ -2044,7 +2192,7 @@ public:
      *
      * \return Updated bit stream position which points to the first bit after this element.
      */
-    static size_t initializeOffsets(DeltaContext& deltaContext, size_t bitPosition, ElementType element)
+    static Result<size_t> initializeOffsets(DeltaContext& deltaContext, size_t bitPosition, ElementType element)
     {
         return zserio::initializeOffsets(deltaContext, bitPosition, element);
     }
@@ -2055,9 +2203,9 @@ public:
      * \param deltaContext Delta context.
      * \param in Bit stream reader.
      *
-     * \return Read element value.
+     * \return Read element value or error.
      */
-    static ElementType read(DeltaContext& deltaContext, BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(DeltaContext& deltaContext, BitStreamReader& in, size_t = 0) noexcept
     {
         return zserio::read<ElementType>(deltaContext, in);
     }
@@ -2068,10 +2216,12 @@ public:
      * \param deltaContext Delta context.
      * \param out Bit stream writer.
      * \param element Element to write.
+     *
+     * \return Success or error code.
      */
-    static void write(DeltaContext& deltaContext, BitStreamWriter& out, ElementType element)
+    static Result<void> write(DeltaContext& deltaContext, BitStreamWriter& out, ElementType element) noexcept
     {
-        zserio::write(deltaContext, out, element);
+        return zserio::write(deltaContext, out, element);
     }
 };
 
@@ -2107,7 +2257,7 @@ public:
      *
      * \return Length of the array element stored in the bit stream in bits.
      */
-    static size_t bitSizeOf(DeltaContext& deltaContext, size_t bitPosition, const ElementType& element)
+    static Result<size_t> bitSizeOf(DeltaContext& deltaContext, size_t bitPosition, const ElementType& element)
     {
         return element.bitSizeOf(deltaContext, bitPosition);
     }
@@ -2121,7 +2271,7 @@ public:
      *
      * \return Updated bit stream position which points to the first bit after this element.
      */
-    static size_t initializeOffsets(DeltaContext& deltaContext, size_t bitPosition, const ElementType& element)
+    static Result<size_t> initializeOffsets(DeltaContext& deltaContext, size_t bitPosition, const ElementType& element)
     {
         return element.initializeOffsets(deltaContext, bitPosition);
     }
@@ -2132,11 +2282,11 @@ public:
      * \param deltaContext Delta context.
      * \param in Bit stream reader.
      *
-     * \return Read element.
+     * \return Read element or error.
      */
-    static ElementType read(DeltaContext& deltaContext, BitStreamReader& in, size_t = 0)
+    static Result<ElementType> read(DeltaContext& deltaContext, BitStreamReader& in, size_t = 0) noexcept
     {
-        return ElementType(deltaContext, in);
+        return ElementType::create(deltaContext, in);
     }
 
     /**
@@ -2145,10 +2295,12 @@ public:
      * \param deltaContext Delta context.
      * \param out Bit stream writer.
      * \param element Element to write.
+     *
+     * \return Success or error code.
      */
-    static void write(DeltaContext& deltaContext, BitStreamWriter& out, const ElementType& element)
+    static Result<void> write(DeltaContext& deltaContext, BitStreamWriter& out, const ElementType& element) noexcept
     {
-        element.write(deltaContext, out);
+        return element.write(deltaContext, out);
     }
 };
 
@@ -2195,7 +2347,7 @@ public:
      * \return Length of the array element stored in the bit stream in bits.
      */
     template <typename PACKING_CONTEXT>
-    static size_t bitSizeOf(const typename ArrayTraits::OwnerType&, PACKING_CONTEXT& packingContext,
+    static Result<size_t> bitSizeOf(const typename ArrayTraits::OwnerType&, PACKING_CONTEXT& packingContext,
             size_t bitPosition, const ElementType& element)
     {
         return element.bitSizeOf(packingContext, bitPosition);
@@ -2211,7 +2363,7 @@ public:
      * \return Updated bit stream position which points to the first bit after this element.
      */
     template <typename PACKING_CONTEXT>
-    static size_t initializeOffsets(const typename ArrayTraits::OwnerType&, PACKING_CONTEXT& packingContext,
+    static Result<size_t> initializeOffsets(const typename ArrayTraits::OwnerType&, PACKING_CONTEXT& packingContext,
             size_t bitPosition, ElementType& element)
     {
         return element.initializeOffsets(packingContext, bitPosition);
@@ -2226,12 +2378,14 @@ public:
      * \param in Bit stream reader.
      * \param allocator Allocator to use.
      * \param index Index of the current element.
+     *
+     * \return Success or error code.
      */
     template <typename RAW_ARRAY, typename PACKING_CONTEXT>
-    static void read(typename ArrayTraits::OwnerType& owner, RAW_ARRAY& rawArray,
-            PACKING_CONTEXT& packingContext, BitStreamReader& in, size_t index)
+    static Result<void> read(typename ArrayTraits::OwnerType& owner, RAW_ARRAY& rawArray,
+            PACKING_CONTEXT& packingContext, BitStreamReader& in, size_t index) noexcept
     {
-        ELEMENT_FACTORY::create(owner, rawArray, packingContext, in, index);
+        return ELEMENT_FACTORY::create(owner, rawArray, packingContext, in, index);
     }
 
     /**
@@ -2240,12 +2394,14 @@ public:
      * \param packingContext Packing context node which keeps the appropriate subtree of contexts.
      * \param out Bit stream writer.
      * \param element Element to write.
+     *
+     * \return Success or error code.
      */
     template <typename PACKING_CONTEXT>
-    static void write(const typename ArrayTraits::OwnerType&, PACKING_CONTEXT& packingContext,
-            BitStreamWriter& out, const ElementType& element)
+    static Result<void> write(const typename ArrayTraits::OwnerType&, PACKING_CONTEXT& packingContext,
+            BitStreamWriter& out, const ElementType& element) noexcept
     {
-        element.write(packingContext, out);
+        return element.write(packingContext, out);
     }
 };
 

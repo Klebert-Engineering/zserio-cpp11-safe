@@ -6,6 +6,7 @@ zserio_generate_cpp11safe(
     SCHEMA schema/minizs.zs
     OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated"
     WITHOUT_SOURCES_AMALGAMATION
+    EXTRA_ARGS -setCppAllocator polymorphic
 )
 
 # Add the test application
