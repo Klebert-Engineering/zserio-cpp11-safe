@@ -1895,7 +1895,7 @@ public:
      *
      * \return Updated bit position which points to the first bit after the array element.
      */
-    static size_t initializeOffsets(OwnerType&, size_t bitPosition, ElementType& element)
+    static Result<size_t> initializeOffsets(OwnerType&, size_t bitPosition, ElementType& element)
     {
         return element.initializeOffsets(bitPosition);
     }

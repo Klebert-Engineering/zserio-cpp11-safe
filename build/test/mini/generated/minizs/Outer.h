@@ -38,6 +38,8 @@ public:
     {}
 
     explicit Outer(const allocator_type& allocator) noexcept;
+    
+    static ::zserio::Result<Outer> create(::zserio::BitStreamReader& in, uint8_t numOfInners_, const allocator_type& allocator = allocator_type());
 
     template <typename ZSERIO_T_inner = ::zserio::vector<::minizs::Inner>,
             ::zserio::is_field_constructor_enabled_t<ZSERIO_T_inner, Outer, allocator_type> = 0>

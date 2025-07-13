@@ -35,6 +35,13 @@ public:
     {}
 
     explicit MostOuter(const allocator_type& allocator) noexcept;
+    
+    static ::zserio::Result<MostOuter> create(::zserio::BitStreamReader& in, const allocator_type& allocator = allocator_type());
+    
+    static ::zserio::Result<MostOuter> deserialize(::zserio::BitStreamReader& in, const allocator_type& allocator = allocator_type())
+    {
+        return create(in, allocator);
+    }
 
     template <typename ZSERIO_T_outer = ::minizs::Outer>
     MostOuter(
@@ -60,7 +67,7 @@ public:
     MostOuter(::zserio::PropagateAllocatorT,
             const MostOuter& other, const allocator_type& allocator);
 
-    void initializeChildren();
+    ::zserio::Result<void> initializeChildren();
 
     uint8_t getNumOfInner() const;
     void setNumOfInner(uint8_t numOfInner_);

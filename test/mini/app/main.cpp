@@ -12,8 +12,6 @@ int main() {
   std::cout << "Zserio C++11-Safe Mini Schema Demo" << std::endl;
   std::cout << "========================================" << std::endl;
   std::cout << std::endl;
-
-  try {
     // Step 1: Create Inner objects
     std::cout << "1. Creating Inner objects..." << std::endl;
     std::vector<minizs::Inner> inners;
@@ -47,14 +45,28 @@ int main() {
 
     // Step 4: Serialize MostOuter using zserio::serialize
     std::cout << "\n4. Serializing MostOuter..." << std::endl;
-    const auto serializedData = zserio::serialize(mostOuter);
+    const auto serializedResult = zserio::serialize(mostOuter);
+    if (!serializedResult.isSuccess())
+    {
+        std::cerr << "\nERROR: Serialization failed with error code: " 
+                  << static_cast<int>(serializedResult.getError()) << std::endl;
+        return EXIT_FAILURE;
+    }
+    const auto serializedData = serializedResult.getValue();
     std::cout << "   - Serialized to " << serializedData.getByteSize()
               << " bytes" << std::endl;
 
     // Step 5: Deserialize MostOuter using zserio::deserialize
     std::cout << "\n5. Deserializing MostOuter..." << std::endl;
-    const auto deserializedMostOuter =
+    const auto deserializeResult =
         zserio::deserialize<minizs::MostOuter>(serializedData);
+    if (!deserializeResult.isSuccess())
+    {
+        std::cerr << "\nERROR: Deserialization failed with error code: " 
+                  << static_cast<int>(deserializeResult.getError()) << std::endl;
+        return EXIT_FAILURE;
+    }
+    const auto deserializedMostOuter = deserializeResult.getValue();
     std::cout << "   - Deserialized successfully" << std::endl;
 
     // Step 6: Verify the deserialized data
@@ -93,8 +105,4 @@ int main() {
       std::cout << "========================================" << std::endl;
       return EXIT_FAILURE;
     }
-  } catch (const std::exception &e) {
-    std::cerr << "\nERROR: " << e.what() << std::endl;
-    return EXIT_FAILURE;
-  }
 }

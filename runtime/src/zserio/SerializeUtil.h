@@ -83,11 +83,21 @@ Result<BasicBitBuffer<ALLOC>> serialize(T& object, const ALLOC& allocator, ARGS&
         return Result<BasicBitBuffer<ALLOC>>::error(initResult.getError());
     }
     
-    // Get bit size - assuming initializeOffsets returns size_t
-    const size_t bitSize = object.initializeOffsets();
+    // Get bit size
+    auto bitSizeResult = object.initializeOffsets();
+    if (!bitSizeResult.isSuccess())
+    {
+        return Result<BasicBitBuffer<ALLOC>>::error(bitSizeResult.getError());
+    }
+    const size_t bitSize = bitSizeResult.getValue();
     
     // Create bit buffer
-    BasicBitBuffer<ALLOC> bitBuffer(bitSize, allocator);
+    auto bufferResult = BasicBitBuffer<ALLOC>::create(bitSize, allocator);
+    if (!bufferResult.isSuccess())
+    {
+        return Result<BasicBitBuffer<ALLOC>>::error(bufferResult.getError());
+    }
+    BasicBitBuffer<ALLOC> bitBuffer = bufferResult.moveValue();
     BitStreamWriter writer(bitBuffer);
     
     // Write object

@@ -14,12 +14,9 @@ namespace zserio
 #if __cplusplus >= 201703L
 #define ZSERIO_NODISCARD [[nodiscard]]
 #else
-// For earlier versions, use compiler-specific attributes if available
-#if defined(__GNUC__) || defined(__clang__)
-#define ZSERIO_NODISCARD __attribute__((warn_unused_result))
-#else
+// For earlier versions, we can't use warn_unused_result on classes
+// It only works on functions in older compilers
 #define ZSERIO_NODISCARD
-#endif
 #endif
 
 /**
