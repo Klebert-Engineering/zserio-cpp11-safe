@@ -28,6 +28,8 @@ class Inner
 {
 public:
     using allocator_type = ::std::allocator<uint8_t>;
+    
+    static ::zserio::Result<Inner> create(::zserio::BitStreamReader& in, const allocator_type& allocator = allocator_type());
 
     Inner() noexcept :
             Inner(allocator_type())
@@ -68,9 +70,9 @@ public:
     uint8_t getValue() const;
     void setValue(uint8_t value_);
 
-    size_t bitSizeOf(size_t bitPosition = 0) const;
+    ::zserio::Result<size_t> bitSizeOf(size_t bitPosition = 0) const;
 
-    size_t initializeOffsets(size_t bitPosition = 0);
+    ::zserio::Result<size_t> initializeOffsets(size_t bitPosition = 0);
 
     bool operator==(const Inner& other) const;
 
@@ -78,7 +80,7 @@ public:
 
     uint32_t hashCode() const;
 
-    void write(::zserio::BitStreamWriter& out) const;
+    ::zserio::Result<void> write(::zserio::BitStreamWriter& out) const;
 
 private:
     ::zserio::string<> readKey(::zserio::BitStreamReader& in,

@@ -70,9 +70,9 @@ public:
     void setOuter(const ::minizs::Outer& outer_);
     void setOuter(::minizs::Outer&& outer_);
 
-    size_t bitSizeOf(size_t bitPosition = 0) const;
+    ::zserio::Result<size_t> bitSizeOf(size_t bitPosition = 0) const;
 
-    size_t initializeOffsets(size_t bitPosition = 0);
+    ::zserio::Result<size_t> initializeOffsets(size_t bitPosition = 0);
 
     bool operator==(const MostOuter& other) const;
 
@@ -80,7 +80,7 @@ public:
 
     uint32_t hashCode() const;
 
-    void write(::zserio::BitStreamWriter& out) const;
+    ::zserio::Result<void> write(::zserio::BitStreamWriter& out) const;
 
 private:
     uint8_t readNumOfInner(::zserio::BitStreamReader& in);

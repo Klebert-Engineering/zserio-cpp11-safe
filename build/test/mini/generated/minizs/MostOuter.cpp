@@ -4,7 +4,7 @@
  */
 
 #include <zserio/StringConvertUtil.h>
-#include <zserio/CppRuntimeException.h>
+#include <zserio/ErrorCode.h>
 #include <zserio/HashCodeUtil.h>
 #include <zserio/BitPositionUtil.h>
 #include <zserio/BitSizeOfCalculator.h>

@@ -4,7 +4,7 @@
  */
 
 #include <zserio/StringConvertUtil.h>
-#include <zserio/CppRuntimeException.h>
+#include <zserio/ErrorCode.h>
 #include <zserio/HashCodeUtil.h>
 #include <zserio/BitPositionUtil.h>
 #include <zserio/BitSizeOfCalculator.h>
@@ -255,11 +255,17 @@ void Outer::write(::zserio::BitStreamWriter& out) const
     m_inner_.write(*this, out);
 }
 
-void Outer::ZserioElementFactory_inner::create(Outer&,
+::zserio::Result<void> Outer::ZserioElementFactory_inner::create(Outer&,
         ::zserio::vector<::minizs::Inner>& array,
         ::zserio::BitStreamReader& in, size_t)
 {
-    array.emplace_back(in, array.get_allocator());
+    auto innerResult = Inner::create(in, array.get_allocator());
+    if (!innerResult.isSuccess())
+    {
+        return ::zserio::Result<void>::error(innerResult.getError());
+    }
+    array.push_back(innerResult.moveValue());
+    return ::zserio::Result<void>::success();
 }
 
 Outer::ZserioArrayType_inner Outer::readInner(::zserio::BitStreamReader& in,

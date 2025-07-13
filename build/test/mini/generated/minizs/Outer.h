@@ -84,9 +84,9 @@ public:
     void setInner(const ::zserio::vector<::minizs::Inner>& inner_);
     void setInner(::zserio::vector<::minizs::Inner>&& inner_);
 
-    size_t bitSizeOf(size_t bitPosition = 0) const;
+    ::zserio::Result<size_t> bitSizeOf(size_t bitPosition = 0) const;
 
-    size_t initializeOffsets(size_t bitPosition = 0);
+    ::zserio::Result<size_t> initializeOffsets(size_t bitPosition = 0);
 
     bool operator==(const Outer& other) const;
 
@@ -94,7 +94,7 @@ public:
 
     uint32_t hashCode() const;
 
-    void write(::zserio::BitStreamWriter& out) const;
+    ::zserio::Result<void> write(::zserio::BitStreamWriter& out) const;
 
 private:
     class ZserioElementFactory_inner
@@ -102,7 +102,7 @@ private:
     public:
         using OwnerType = Outer;
 
-        static void create(Outer& owner,
+        static ::zserio::Result<void> create(Outer& owner,
                 ::zserio::vector<::minizs::Inner>& array,
                 ::zserio::BitStreamReader& in, size_t index);
     };
