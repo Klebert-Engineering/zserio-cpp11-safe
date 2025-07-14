@@ -40,9 +40,9 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 # Extension JAR and core locations
-# Ant build.xml will put the JAR in its default location
-get_filename_component(ANT_BUILD_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../.." ABSOLUTE)
-set(ZSERIO_EXTENSION_JAR "${ANT_BUILD_ROOT}/build/compiler/extensions/cpp/11/jar/zserio_cpp.jar")
+# Use CMake build directory for Ant outputs to avoid path issues
+set(ZSERIO_EXTENSION_BUILD_DIR "${CMAKE_BINARY_DIR}/compiler/extensions")
+set(ZSERIO_EXTENSION_JAR "${ZSERIO_EXTENSION_BUILD_DIR}/cpp/11/jar/zserio_cpp.jar")
 set(ZSERIO_CORE_DIR "${CMAKE_BINARY_DIR}/zserio-2.16.1")
 set(ZSERIO_CORE_JAR "${ZSERIO_CORE_DIR}/zserio_libs/zserio_core.jar")
 
