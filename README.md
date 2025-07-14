@@ -118,8 +118,10 @@ sudo dnf install java-11-openjdk-devel ant cmake gcc-c++
 The easiest way to build everything is using the provided build script:
 
 ```bash
-./build_and_test.bash
+./build_and_test.bash --clean
 ```
+
+Make sure to run a clean build the first time after cloning the repository. After that you can omit the `--clean` option.
 
 This will:
 - Check all prerequisites (Java, Ant, CMake, C++ compiler)
@@ -130,6 +132,7 @@ This will:
 
 For more control, you can use options:
 ```bash
+./build_and_test.bash --clean          # Clean build
 ./build_and_test.bash --help           # Show all options
 ./build_and_test.bash --debug          # Debug build
 ./build_and_test.bash --no-tests       # Skip tests
@@ -157,7 +160,7 @@ CMake options:
 
 There are three ways to use this C++11-safe extension:
 
-**Note:** After building with the new CMake system, the extension JAR will be at `build/extension/jar/zserio_cpp.jar` and the runtime library at `build/lib/libZserioCppRuntime.a`.
+**Note:** After building with the new CMake system, the extension JAR will be at `build/compiler/extensions/cpp/11/jar/zserio_cpp.jar` and the runtime library at `build/lib/libZserioCppRuntime.a`.
 
 After building both components, you can use the extension directly with the Java command:
 
@@ -171,7 +174,7 @@ java -cp "path/to/zserio_core.jar:path/to/zserio_cpp.jar" \
 
 Example:
 ```bash
-java -cp "../../../build/compiler/core/java/jar/zserio_core.jar:build/jar/zserio_cpp.jar" \
+java -cp "build/zserio-2.16.1/zserio_libs/zserio_core.jar:build/compiler/extensions/cpp/11/jar/zserio_cpp.jar" \
      zserio.tools.ZserioTool \
      -cpp11safe generated \
      -src schemas \
